@@ -2,7 +2,7 @@
 # UseOpenNI.cmake #
 ###################
 
-OPTION(WITH_OPENNI "Build with OpenNI support?" OFF)
+OPTION(WITH_OPENNI "Build with OpenNI support?" ON)
 
 IF(WITH_OPENNI)
   IF(MSVC_IDE)
@@ -10,7 +10,7 @@ IF(WITH_OPENNI)
   ELSEIF(APPLE)
     FIND_PATH(OPENNI_ROOT primesense-usb.rules HINTS ~/Downloads/OpenNI-MacOSX-x64-2.2)
   ELSEIF("${CMAKE_SYSTEM}" MATCHES "Linux")
-    FIND_PATH(OPENNI_ROOT LICENSE HINTS ~/Software/OpenNI2)
+    FIND_PATH(OPENNI_ROOT LICENSE HINTS /usr/local/OpenNI2)
   ELSE()
     MESSAGE(FATAL_ERROR "OpenNI not currently set up to work on this platform.")
   ENDIF()

@@ -150,8 +150,8 @@ void RealSense2Engine::getImages(ITMUChar4Image *rgbImage, ITMShortImage *rawDep
 	Vector4u *rgb = rgbImage->GetData(MEMORYDEVICE_CPU);
 	
 	// Let's just memcpy the data instead of using loops
-	std::memcpy(rgb, color_frame, rgb_pixel_size * rgbImage->noDims.x*rgbImage->noDims.y);
-	std::memcpy(rawDepth, depth_frame, depth_pixel_size * rawDepthImage->noDims.x * rawDepthImage->noDims.y);
+	memcpy(rgb, color_frame, rgb_pixel_size * rgbImage->noDims.x*rgbImage->noDims.y);
+	memcpy(rawDepth, depth_frame, depth_pixel_size * rawDepthImage->noDims.x * rawDepthImage->noDims.y);
 	
 	dataAvailable = true;
 }

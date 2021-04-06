@@ -3,5 +3,5 @@
 ########################
 
 IF(WITH_REALSENSE2)
-  TARGET_LINK_LIBRARIES(${targetname} ${RealSense2_LIBRARY})
+  TARGET_LINK_LIBRARIES(${targetname} ${realsense2_LIBRARY})
 ENDIF()
