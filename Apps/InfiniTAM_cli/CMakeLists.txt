@@ -1,22 +1,18 @@
-#####################################
-# CMakeLists.txt for Apps/InfiniTAM #
-#####################################
+#########################################
+# CMakeLists.txt for Apps/InfiniTAM_cli #
+#########################################
 
 ###########################
 # Specify the target name #
 ###########################
 
-SET(targetname InfiniTAM)
+SET(targetname InfiniTAM_cli)
 
 ################################
 # Specify the libraries to use #
 ################################
 
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseCUDA.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseFFmpeg.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseGLUT.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseLibRoyale.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseOpenGL.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseOpenMP.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseOpenNI.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UsePNG.cmake)
@@ -29,12 +25,12 @@ INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseUVC.cmake)
 #############################
 
 SET(sources
-InfiniTAM.cpp
-UIEngine.cpp
+CLIEngine.cpp
+InfiniTAM_cli.cpp
 )
 
 SET(headers
-UIEngine.h
+CLIEngine.h
 )
 
 #############################
@@ -52,12 +48,10 @@ INCLUDE(${PROJECT_SOURCE_DIR}/cmake/SetCUDAAppTarget.cmake)
 #################################
 # Specify the libraries to link #
 #################################
-
+ADD_LIBRARY(CLIEngine STATIC CLIEngine.cpp)
 TARGET_LINK_LIBRARIES(${targetname} InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkFFmpeg.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkGLUT.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkLibRoyale.cmake)
-INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkOpenGL.cmake)
+#target_link_libraries(plugin InputSource ITMLib)
+
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkOpenNI.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkPNG.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/LinkRealSense.cmake)

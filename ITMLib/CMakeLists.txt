@@ -15,6 +15,11 @@ SET(targetname ITMLib)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseCUDA.cmake)
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseOpenMP.cmake)
 
+################################
+# pyh: suppress c++14 warning  #
+################################
+#add_compile_options(-std=c++14)
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
 #############################
 # Specify the project files #
 #############################

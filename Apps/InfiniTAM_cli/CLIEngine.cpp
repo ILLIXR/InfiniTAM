@@ -42,11 +42,18 @@ void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuS
 
 bool CLIEngine::ProcessFrame()
 {
-	if (!imageSource->hasMoreImages()) return false;
+	if (!imageSource->hasMoreImages()) {
+	    printf("has no more image\n");
+	    return false;
+	}
 	imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
 	if (imuSource != NULL) {
-		if (!imuSource->hasMoreMeasurements()) return false;
+		if (!imuSource->hasMoreMeasurements()) {
+    	    printf("has no more measurements\n");
+
+		    return false;
+		}
 		else imuSource->getMeasurement(inputIMUMeasurement);
 	}
 
@@ -75,7 +82,10 @@ bool CLIEngine::ProcessFrame()
 void CLIEngine::Run()
 {
 	while (true) {
-		if (!ProcessFrame()) break;
+		if (!ProcessFrame()) 
+		{
+		    break;
+		}
 	}
 }
 
@@ -83,6 +93,11 @@ void CLIEngine::Shutdown()
 {
 	sdkDeleteTimer(&timer_instant);
 	sdkDeleteTimer(&timer_average);
+
+	//print mesh
+    printf("saving scene to model ... \n");
+    CLIEngine *cliEngine = CLIEngine::Instance();
+    cliEngine->mainEngine->SaveSceneToMesh("/home/yihan/ILLIXR/mesh.stl");
 
 	delete inputRGBImage;
 	delete inputRawDepthImage;

@@ -143,6 +143,7 @@ struct TodoListEntry {
 template <typename TVoxel, typename TIndex>
 ITMTrackingState::TrackingResult ITMMultiEngine<TVoxel, TIndex>::ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement)
 {
+    printf("multiengine\n");
 	std::vector<TodoListEntry> todoList;
 	ITMTrackingState::TrackingResult primaryLocalMapTrackingResult;
 

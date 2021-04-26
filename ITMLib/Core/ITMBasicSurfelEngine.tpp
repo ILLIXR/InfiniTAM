@@ -188,6 +188,7 @@ static void QuaternionFromRotationMatrix(const double *matrix, double *q) {
 template <typename TSurfel>
 ITMTrackingState::TrackingResult ITMBasicSurfelEngine<TSurfel>::ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement)
 {
+    printf("surfel engine\n");
 	// prepare image and turn it into a depth image
 	if (imuMeasurement == NULL) viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter);
 	else viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter, imuMeasurement);

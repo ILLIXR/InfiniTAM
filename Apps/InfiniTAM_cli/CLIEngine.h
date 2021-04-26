@@ -20,7 +20,6 @@ namespace InfiniTAM
 			InputSource::ImageSourceEngine *imageSource;
 			InputSource::IMUSourceEngine *imuSource;
 			ITMLib::ITMLibSettings internalSettings;
-			ITMLib::ITMMainEngine *mainEngine;
 
 			StopWatchInterface *timer_instant;
 			StopWatchInterface *timer_average;
@@ -31,6 +30,8 @@ namespace InfiniTAM
 
 			int currentFrameNo;
 		public:
+			ITMLib::ITMMainEngine *mainEngine;
+
 			static CLIEngine* Instance(void) {
 				if (instance == NULL) instance = new CLIEngine();
 				return instance;

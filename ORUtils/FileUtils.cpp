@@ -53,6 +53,7 @@ static FormatType png_readheader(FILE *fp, int & width, int & height, PNGReaderD
 	fread(header, 1, 8, fp);
 	if (png_sig_cmp(header, 0, 8)) {
 		//"not a PNG file"
+		printf("not a png file\n");
 		return type;
 	}
 
@@ -61,17 +62,20 @@ static FormatType png_readheader(FILE *fp, int & width, int & height, PNGReaderD
 
 	if (!internal.png_ptr) {
 		//"png_create_read_struct failed"
+		printf("png_create_read_struct failed\n");
 		return type;
 	}
 
 	internal.info_ptr = png_create_info_struct(internal.png_ptr);
 	if (!internal.info_ptr) {
 		//"png_create_info_struct failed"
+		printf("png_create_info_struct failed\n");
 		return type;
 	}
 
 	if (setjmp(png_jmpbuf(internal.png_ptr))) {
 		//"setjmp failed"
+        printf("setjmp_failed\n");
 		return type;
 	}
 
@@ -86,19 +90,23 @@ static FormatType png_readheader(FILE *fp, int & width, int & height, PNGReaderD
 	bit_depth = png_get_bit_depth(internal.png_ptr, internal.info_ptr);
 
 	if (color_type == PNG_COLOR_TYPE_GRAY) {
+        //printf("type_gray\n");
 		if (bit_depth == 8) type = MONO_8u;
 		else if (bit_depth == 16) type = MONO_16u;
 		// bit depths 1, 2 and 4 are not accepted
 	} else if (color_type == PNG_COLOR_TYPE_RGB) {
+        //printf("type_rgb\n");
 		if (bit_depth == 8) type = RGB_8u;
 		// bit depth 16 is not accepted
 	} else if (color_type == PNG_COLOR_TYPE_RGBA) {
+	    //printf("type_rgba\n");
 		if (bit_depth == 8) type = RGBA_8u;
 		// bit depth 16 is not accepted
-	}
+	} 
+
 	// other color types are not accepted
 #endif
-
+    printf("end of png_readheader\n");
 	return type;
 }
 
@@ -337,7 +345,11 @@ bool ReadImageFromFile(ORUtils::Image<ORUtils::Vector4<unsigned char> > * image,
 	FormatType type;
 	bool binary;
 	FILE *f = fopen(fileName, "rb");
-	if (f == NULL) return false;
+	if (f == NULL) 
+	{
+	    printf("location 1\n");
+	    return false;
+    }
 	type = pnm_readheader(f, &xsize, &ysize, &binary);
 	if ((type != RGB_8u)&&(type != RGBA_8u)) {
 		fclose(f);
@@ -345,6 +357,7 @@ bool ReadImageFromFile(ORUtils::Image<ORUtils::Vector4<unsigned char> > * image,
 		type = png_readheader(f, xsize, ysize, pngData);
 		if ((type != RGB_8u)&&(type != RGBA_8u)) {
 			fclose(f);
+    	    printf("location 2\n");
 			return false;
 		}
 		usepng = true;
@@ -359,11 +372,18 @@ bool ReadImageFromFile(ORUtils::Image<ORUtils::Vector4<unsigned char> > * image,
 	else data = (unsigned char*)image->GetData(MEMORYDEVICE_CPU);
 
 	if (usepng) {
-		if (!png_readdata(f, xsize, ysize, pngData, data)) { fclose(f); delete[] data; return false; }
+		if (!png_readdata(f, xsize, ysize, pngData, data)) { fclose(f); delete[] data; 
+    	    printf("location 3\n");
+	        return false; }
 	} else if (binary) {
-		if (!pnm_readdata_binary(f, xsize, ysize, RGB_8u, data)) { fclose(f); delete[] data; return false; }
+		if (!pnm_readdata_binary(f, xsize, ysize, RGB_8u, data)) { fclose(f); delete[] data; 
+          	    printf("location 4\n");
+				    return false; }
 	} else {
-		if (!pnm_readdata_ascii(f, xsize, ysize, RGB_8u, data)) { fclose(f); delete[] data; return false; }
+		if (!pnm_readdata_ascii(f, xsize, ysize, RGB_8u, data)) { fclose(f); delete[] data; 
+    	    printf("location 5\n");
+
+    		return false; }
 	}
 	fclose(f);
 

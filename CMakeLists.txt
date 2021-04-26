@@ -5,6 +5,13 @@
 cmake_minimum_required(VERSION 2.8)
 
 PROJECT(InfiniTAM)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} ) 
+
 
 #################################
 # Specify the CMake module path #
@@ -17,12 +24,13 @@ SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 #################################
 
 IF(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -std=c++17 -Wno-deprecated-declarations -Wno-unused-function")
+#  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
 ENDIF()
 
 IF(NOT MSVC_IDE)
   SET(CFLAGS_WARN "-Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing")
-  SET(CMAKE_CXX_FLAGS "-fPIC -O3 -march=native ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "-fPIC -O3 -std=c++17 -march=native ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
   #SET(CMAKE_CXX_FLAGS "-fPIC -g ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
 ENDIF()
 
@@ -44,3 +52,9 @@ ADD_SUBDIRECTORY(InputSource)
 ADD_SUBDIRECTORY(ITMLib)
 ADD_SUBDIRECTORY(MiniSlamGraphLib)
 ADD_SUBDIRECTORY(ORUtils)
+
+#add_library(plugin STATIC plugin.cpp)
+add_library(plugin SHARED plugin.cpp)
+TARGET_LINK_LIBRARIES(plugin CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
+#TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
+target_link_libraries(plugin ${OpenCV_LIBS} )  
