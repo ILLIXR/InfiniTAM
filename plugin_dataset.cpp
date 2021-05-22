@@ -15,6 +15,8 @@
 #include "ITMLib/ITMLibDefines.h"
 #include "ITMLib/Core/ITMBasicEngine.h"
 
+//add calib file relative path
+#include <unistd.h>
 
 using namespace ILLIXR;
 //yihan: using threadloop
@@ -48,7 +50,10 @@ public:
         printf("depth Matrix: %s %dx%d \n", ty.c_str(), depth_info.cols, depth_info.rows );
 //        printf("cols: %d, rows: %d, dims: %d\n", depth_info.cols,depth_info.rows, depth_info.dims);
         InputSource::ImageSourceEngine *imageSource = NULL;
-        std::string calib_source = "/home/yihan/ILLIXR/infinitam/calib.txt";
+        char home_dir[256];
+        getcwd(home_dir,256)
+        std::string calib_source = std::string(home_dir) + "/infinitam_dataset/calib.txt";
+//        std::string calib_source = "/home/yihan/ILLIXR/infinitam/calib.txt";
         imageSource = new InputSource::ImageFileReader<InputSource::ImageMaskPathGenerator>(calib_source.c_str(), pathGenerator);
 
         InputSource::IMUSourceEngine *imuSource = NULL;
