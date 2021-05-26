@@ -24,7 +24,7 @@ load_data() {
 	const char* illixr_data_c_str = std::getenv("ILLIXR_DATA");
 	if (!illixr_data_c_str) {
 		std::cerr << "Please define ILLIXR_DATA" << std::endl;
-		abort();
+		ILLIXR::abort();
 	}
 	std::string illixr_data = std::string{illixr_data_c_str};
 
@@ -34,7 +34,7 @@ load_data() {
 
 	if (!gt_file.good()) {
 		std::cerr << "${ILLIXR_DATA}/groundtruth.txt (" << illixr_data <<  "/groundtruth.txt) is not a good path" << std::endl;
-		abort();
+		ILLIXR::abort();
 	}
 
 	for(CSVIterator row{gt_file, 1}; row != CSVIterator{}; ++row) {
