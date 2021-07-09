@@ -1,137 +1,95 @@
-
-#include "common/threadloop.hpp"
 #include "common/plugin.hpp"
 #include "common/switchboard.hpp"
 #include "common/data_format.hpp"
 #include "common/phonebook.hpp"
-
-
-//3/18 use RBGD dataset
-#include "data_loading.hpp"
 
 //add infinitam libraries
 #include "Apps/InfiniTAM_cli/CLIEngine.h"
 #include "Apps/InfiniTAM/UIEngine.h"
 #include "ITMLib/ITMLibDefines.h"
 #include "ITMLib/Core/ITMBasicEngine.h"
-
+#include "ORUtils/FileUtils.h"
 #include <signal.h>
+#include <unistd.h>
 using namespace ILLIXR;
-//yihan: using plugin
 class infinitam : public plugin {
 public:
 	infinitam(std::string name_, phonebook* pb_)
 		: plugin{name_, pb_}
-		, _m_rgb_depth{sb->subscribe_latest<rgb_depth_type>("rgb_depth")}
 		, sb{pb->lookup_impl<switchboard>()}
     {
-        InputSource::ImageSourceEngine *imageSource = NULL;
-        InputSource::IMUSourceEngine *imuSource = NULL;
-        std::string calib_source = "/home/yihan/ILLIXR/infinitam/real_calib.txt";
-        ITMLib::ITMRGBDCalib *calib = new ITMLib::ITMRGBDCalib();
-//        readRGBDCalib(calib_source.c_str(), calib);
-        //manual porting calib
-        
-        calib->intrinsics_d.projectionParamsSimple.fx = 385.466644;
-        calib->intrinsics_d.projectionParamsSimple.fy = 385.466644;
-        calib->intrinsics_d.projectionParamsSimple.px = 315.551788;
-        calib->intrinsics_d.projectionParamsSimple.py = 243.214706;
+        //pyh still hardcode to read the calib file
+        char cur_path[256];
+        getcwd(cur_path,256);
+        std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
 
-        calib->intrinsics_rgb.projectionParamsSimple.fx = 611.514404;
-        calib->intrinsics_rgb.projectionParamsSimple.fy = 611.393982;
-        calib->intrinsics_rgb.projectionParamsSimple.px = 318.288635;
-        calib->intrinsics_rgb.projectionParamsSimple.py = 247.232956;
-        
-        Matrix4f extrinsics;
-        extrinsics.m00 = 0.999934; //rotation[0]
-        extrinsics.m01 = -0.011091; //rotation[3]
-        extrinsics.m02 = -0.002991; //rotation[6]
-        extrinsics.m03 = 0.0f;
-        extrinsics.m10 = 0.011078; //rotation[1]
-        extrinsics.m11 = 0.999928; //rotation[4]
-        extrinsics.m12 = -0.004641; //rotation[7]
-        extrinsics.m13 = 0.0f;
-        extrinsics.m20 = 0.003042; //rotation[2]
-        extrinsics.m21 = 0.004608; //rotation[5]
-        extrinsics.m22 = 0.999985; //rotation[8]
-        extrinsics.m23 = 0.0f;
-        extrinsics.m30 = -0.014601; //translation[0]
-        extrinsics.m31 = -0.000422; //translation[1]
-        extrinsics.m32 = -0.000426; //translation[2]
-        extrinsics.m33 = 1.0f;
+        //read from calib.txt and convert to ITMRGBDCalib format
+        //modified from ITMLib/Objects/Camera/ITMCalibIo::readRGBDCalib(
+        calib = new ITMLib::ITMRGBDCalib();
+        if(!readRGBDCalib(calib_source.c_str(), *calib))
+        {
+            printf("Read RGBD caliberation file failed\n");
+        }
 
-        calib->trafo_rgb_to_depth.SetFrom(extrinsics);
-        
         ITMLib::ITMLibSettings *internalSettings = new ITMLib::ITMLibSettings();
-        mainEngine = new ITMLib::ITMBasicEngine<ITMVoxel,ITMVoxelIndex>(
-            internalSettings, *calib, Vector2i(640,480), Vector2i(640,480)
-        );
 
-//        InfiniTAM::Engine::CLIEngine::Instance()->Initialise(imageSource, imuSource, mainEngine, internalSettings->deviceType);
-        inputRGBImage = new ITMUChar4Image(Vector2i(640,480), true, true);
-        inputRawDepthImage = new ITMShortImage(Vector2i(640,480), true, true);
+        mainEngine = new ITMLib::ITMBasicEngine<ITMVoxel, ITMVoxelIndex>(
+                        internalSettings,
+                        *calib,
+                        calib->intrinsics_rgb.imgSize,
+                        calib->intrinsics_d.imgSize
+                        );
+
+        //dims, allocate_cpu?, allocate_gpu?
+        inputRawDepthImage = new ITMShortImage(calib->intrinsics_d.imgSize, true, false);
+        inputRGBImage = new ITMUChar4Image(calib->intrinsics_rgb.imgSize, true, false);
 
 
-//        inputRGBImage = new ITMUChar4Image(Vector2i(640,480), true, true); 
-//        inputRawDepthImage = new ITMShortImage(Vector2i(640,480), true, true);;
-        
+        sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](switchboard::ptr<const rgb_depth_type> datum, std::size_t){ 
+            this->ProcessFrame(datum);
+        });
 		printf("================================InfiniTAM: setup finished==========================\n");
 	}
 
-
-    virtual void start() override{
-        plugin::start();
-        sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](const rgb_depth_type *datum) { 
-            this->ProcessFrame(datum);
-        });
-    }
-    void ProcessFrame(const rgb_depth_type *datum)
+    void ProcessFrame(switchboard::ptr<const rgb_depth_type> datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
-        cv::Mat rgb{*datum->rgb.value()};
-        cv::Mat depth{*datum->depth.value()};
-        std:: string old_ty =  type2str( depth.type() );
-        printf("old rgb Matrix: %s,  %d x %d \n", old_ty.c_str(), rgb.cols, rgb.rows );
-
-        cv::imwrite("cur_rgb.png", rgb);
-        cv::imwrite("cur_depth.png", depth);
-        system("convert /home/yihan/ILLIXR/cur_rgb.png /home/yihan/ILLIXR/cur_rgb.ppm");
-        system("convert /home/yihan/ILLIXR/cur_depth.png -flatten /home/yihan/ILLIXR/cur_depth.pgm");
-//        std::string cur_rgb_location = "/home/yihan/ILLIXR/demo_data/rgbd_dataset_freiburg1_rpy/rgb_sort/0000.ppm";
-//        std::string test_depth_location = "/home/yihan/ILLIXR/cur_depth.png";
-//        cv::Mat depth_info = cv::imread(test_depth_location.c_str(), cv::IMREAD_UNCHANGED);
-//        std:: string ty =  type2str( depth_info.type() );
- //       printf("new rgb Matrix: %s,  %d x %d \n", ty.c_str(), depth_info.cols, depth_info.rows );
-        std::string cur_rgb_location = "/home/yihan/ILLIXR/cur_rgb.ppm";
-        std::string cur_depth_location = "/home/yihan/ILLIXR/cur_depth.pgm";
-        
-        if(!ReadImageFromFile(inputRGBImage, cur_rgb_location.c_str()))
-        {
-            printf("rgb read is not valid\n");
-        }
-        else
-        {
-            printf("rgb read is valid\n");
-        }
-        if(!ReadImageFromFile(inputRawDepthImage, cur_depth_location.c_str()))
-        {
-            printf("depth read is not valid\n");
-        }
-        else
-        {
-            printf("depth read is valid\n");
-        }
-        
-//        ReadImageFromFile(inputRawDepthImage, "cur_depth.pgm");
-//		printf("datum rgb size %d %d \n",rgb.rows, rgb.cols);
-//		printf("datum depth size %d %d \n",depth.rows, depth.cols);
-		//printf("datum depth size %d %d \n", datum->depth->value().rows, datum->depth->value().cols);
-		if(inputRGBImage ==NULL || inputRawDepthImage ==NULL)
+		if(datum->depth.has_value() && datum->rgb.has_value())
 		{
-		    printf("somethign is wrong\n");
+		    cv::Mat cur_depth = datum->depth.value();
+		    cv::Mat cur_rgb = datum->rgb.value();
+            
+		    std::string depth_type = type2str(cur_depth.type());
+            
+		    std::string rgb_type = type2str(cur_rgb.type());
+            
+		    //printf("depth type %s\n", depth_type.c_str());
+		    //printf("rgb type%s\n", rgb_type.c_str());
+
+
+		    const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
+		    const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
+
+		    short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
+            Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
+
+
+		    std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
+		    std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
+		    mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+#ifndef COMPILE_WITHOUT_CUDA
+            ORcudaSafeCall(cudaThreadSynchronize());
+#endif
 		}
-        mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+		else
+		{
+		    printf("missing either rgb or depth or both\n");
+		}
 	}
+
+    virtual ~infinitam() override{
+        mainEngine->SaveSceneToMesh("infinitam.stl");
+    }
     std::string type2str(int type) 
     {
         std::string r;
@@ -156,18 +114,15 @@ public:
          return r;
     }
 
-	virtual ~infinitam() override {
-        //need to implement UIEngine::Instance()->shutdown()
-        mainEngine->SaveSceneToMesh("mesh.stl");
-	}
-
     
 private:
 	const std::shared_ptr<switchboard> sb;
-	std::unique_ptr<reader_latest<rgb_depth_type>> _m_rgb_depth;
+
 	ITMUChar4Image *inputRGBImage;
     ITMShortImage *inputRawDepthImage;
     ITMLib::ITMMainEngine *mainEngine;
+    ITMLib::ITMRGBDCalib *calib;
+
 };
 
 PLUGIN_MAIN(infinitam)
