@@ -13,6 +13,8 @@ SE3Pose::SE3Pose(float tx, float ty, float tz, float rx, float ry, float rz)
 }
 SE3Pose::SE3Pose(const float pose[6]) { this->SetFrom(pose); }
 SE3Pose::SE3Pose(const Matrix4<float> & src) { this->SetM(src); }
+//add new constructor
+SE3Pose::SE3Pose(const Matrix4<float> & src, bool groundtruth) { this->SetGT(src); }
 SE3Pose::SE3Pose(const Vector6<float> & tangent) { this->SetFrom(tangent); }
 SE3Pose::SE3Pose(const SE3Pose & src) { this->SetFrom(&src); }
 SE3Pose::SE3Pose(const Matrix3<float> &R, const Vector3<float> &t) { this->SetRT(R, t); }
@@ -28,7 +30,15 @@ SE3Pose::SE3Pose(const Matrix3<float> &R, const Vector3<float> &t) { this->SetRT
 #ifndef M_PI_2
 #define M_PI_2 1.5707963267948966192E0
 #endif
-
+//pyh print method for M
+void SE3Pose::PrintM(int id)
+{
+    std::cout<<"location :"<<id<<"\n";
+    std::cout<<M.m[0]<<" "<<M.m[4]<<" "<<M.m[8]<<" "<<M.m[12]<<"\n";
+    std::cout<<M.m[1]<<" "<<M.m[5]<<" "<<M.m[9]<<" "<<M.m[13]<<"\n";
+    std::cout<<M.m[2]<<" "<<M.m[6]<<" "<<M.m[10]<<" "<<M.m[14]<<"\n";
+    std::cout<<M.m[3]<<" "<<M.m[7]<<" "<<M.m[11]<<" "<<M.m[15]<<"\n\n";
+}
 void SE3Pose::SetBoth(const Matrix4<float> & M, const float params[6])
 {
 	this->M = M;
@@ -78,14 +88,34 @@ void SE3Pose::SetFrom(const float pose[6])
 
 void SE3Pose::SetFrom(const SE3Pose *pose)
 {
-	this->params.each.tx = pose->params.each.tx;
-	this->params.each.ty = pose->params.each.ty;
-	this->params.each.tz = pose->params.each.tz;
-	this->params.each.rx = pose->params.each.rx;
-	this->params.each.ry = pose->params.each.ry;
-	this->params.each.rz = pose->params.each.rz;
-
-	M = pose->M;
+   this->params.each.tx = pose->params.each.tx;
+   this->params.each.ty = pose->params.each.ty;
+   this->params.each.tz = pose->params.each.tz;
+   this->params.each.rx = pose->params.each.rx;
+   this->params.each.ry = pose->params.each.ry;
+   this->params.each.rz = pose->params.each.rz;
+    //pyh changed here
+    //std::cout<<"triggered\n";
+    this->M = pose->M;
+ 	//this->M.m[0] = pose->M.m[0];
+ 	//this->M.m[1] = pose->M.m[1];
+ 	//this->M.m[2] = pose->M.m[2];
+ 	//this->M.m[3] = pose->M.m[3];
+ 	//this->M.m[4] = pose->M.m[4];
+ 	//this->M.m[5] = pose->M.m[5];
+ 	//this->M.m[6] = pose->M.m[6];
+ 	//this->M.m[7] = pose->M.m[7];
+ 	//this->M.m[8] = pose->M.m[8];
+ 	//this->M.m[9] = pose->M.m[9];
+ 	//this->M.m[10] = pose->M.m[10];
+ 	//this->M.m[11] = pose->M.m[11];
+ 	//this->M.m[12] = pose->M.m[12];
+ 	//this->M.m[13] = pose->M.m[13];
+ 	//this->M.m[14] = pose->M.m[14];
+ 	//this->M.m[15] = pose->M.m[15];
+    //this->SetParamsFromModelView();
+    //this->Coerce();
+    
 }
 
 void SE3Pose::SetModelViewFromParams()
@@ -158,7 +188,7 @@ void SE3Pose::SetModelViewFromParams()
 	M.m[3 + 4 * 0] = 0.0f; M.m[3 + 4 * 1] = 0.0f; M.m[3 + 4 * 2] = 0.0f; M.m[3 + 4 * 3] = 1.0f;
 }
 
-void SE3Pose::SetParamsFromModelView()
+void SE3Pose::SetParamsFromGT()
 {
 	Vector3<float> resultRot;
 	Matrix3<float> R = GetR();
@@ -168,15 +198,17 @@ void SE3Pose::SetParamsFromModelView()
 	resultRot.x = (R.m[2 + 3 * 1] - R.m[1 + 3 * 2]) * 0.5f;
 	resultRot.y = (R.m[0 + 3 * 2] - R.m[2 + 3 * 0]) * 0.5f;
 	resultRot.z = (R.m[1 + 3 * 0] - R.m[0 + 3 * 1]) * 0.5f;
-
 	float sin_angle_abs = sqrt(dot(resultRot, resultRot));
-
+    //std::cout<<"1: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+    //this->PrintM(0);
 	if (cos_angle > M_SQRT1_2)
 	{
 		if (sin_angle_abs)
 		{
 			float p = asinf(sin_angle_abs) / sin_angle_abs;
 			resultRot.x *= p; resultRot.y *= p; resultRot.z *= p;
+            //std::cout<<"2: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+            //this->PrintM(1);
 		}
 	}
 	else
@@ -185,6 +217,7 @@ void SE3Pose::SetParamsFromModelView()
 		{
 			float p = acosf(cos_angle) / sin_angle_abs;
 			resultRot.x *= p; resultRot.y *= p; resultRot.z *= p;
+            //std::cout<<"3: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
 		}
 		else
 		{
@@ -213,6 +246,7 @@ void SE3Pose::SetParamsFromModelView()
 			r2 = normalize(r2);
 
 			resultRot.x = angle * r2.x; resultRot.y = angle * r2.y; resultRot.z = angle * r2.z;
+            //std::cout<<"4: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
 		}
 	}
 
@@ -231,15 +265,114 @@ void SE3Pose::SetParamsFromModelView()
 		float param = dot(T, resultRot) * (1 - 2 * shtot) / denom;
 
 		rottrans.x -= resultRot.x * param; rottrans.y -= resultRot.y * param; rottrans.z -= resultRot.z * param;
+        //std::cout<<"5: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+        //this->PrintM(2);
 	}
 	else
 	{
 		float param = dot(T, resultRot) / 24;
 		rottrans.x -= resultRot.x * param; rottrans.y -= resultRot.y * param; rottrans.z -= resultRot.z * param;
+        //std::cout<<"6: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
 	}
 
 	rottrans.x /= 2 * shtot; rottrans.y /= 2 * shtot; rottrans.z /= 2 * shtot;
+    //std::cout<<"7: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+    //this->PrintM(3);
+	this->params.each.rx = resultRot.x; this->params.each.ry = resultRot.y; this->params.each.rz = resultRot.z;
+	//this->params.each.tx = rottrans.x; this->params.each.ty = rottrans.y; this->params.each.tz = rottrans.z;
+	//pyh now we basically change nothing
+	this->params.each.tx = GetM().m[12]; this->params.each.ty = GetM().m[13]; this->params.each.tz = GetM().m[14];
+}
+void SE3Pose::SetParamsFromModelView()
+{
+	Vector3<float> resultRot;
+	Matrix3<float> R = GetR();
+	Vector3<float> T = GetT();
 
+	float cos_angle = (R.m00 + R.m11 + R.m22 - 1.0f) * 0.5f;
+	resultRot.x = (R.m[2 + 3 * 1] - R.m[1 + 3 * 2]) * 0.5f;
+	resultRot.y = (R.m[0 + 3 * 2] - R.m[2 + 3 * 0]) * 0.5f;
+	resultRot.z = (R.m[1 + 3 * 0] - R.m[0 + 3 * 1]) * 0.5f;
+	float sin_angle_abs = sqrt(dot(resultRot, resultRot));
+    //std::cout<<"1: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+    //this->PrintM(0);
+	if (cos_angle > M_SQRT1_2)
+	{
+		if (sin_angle_abs)
+		{
+			float p = asinf(sin_angle_abs) / sin_angle_abs;
+			resultRot.x *= p; resultRot.y *= p; resultRot.z *= p;
+            //std::cout<<"2: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+            //this->PrintM(1);
+		}
+	}
+	else
+	{
+		if (cos_angle > -M_SQRT1_2)
+		{
+			float p = acosf(cos_angle) / sin_angle_abs;
+			resultRot.x *= p; resultRot.y *= p; resultRot.z *= p;
+            //std::cout<<"3: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+		}
+		else
+		{
+			float angle = (float)M_PI - asinf(sin_angle_abs);
+			float d0 = R.m[0 + 3 * 0] - cos_angle;
+			float d1 = R.m[1 + 3 * 1] - cos_angle;
+			float d2 = R.m[2 + 3 * 2] - cos_angle;
+
+			Vector3<float> r2;
+
+			if (fabsf(d0) > fabsf(d1) && fabsf(d0) > fabsf(d2))
+			{
+				r2.x = d0; r2.y = (R.m[1 + 3 * 0] + R.m[0 + 3 * 1]) * 0.5f; r2.z = (R.m[0 + 3 * 2] + R.m[2 + 3 * 0]) * 0.5f;
+			}
+			else
+			{
+				if (fabsf(d1) > fabsf(d2))
+				{
+					r2.x = (R.m[1 + 3 * 0] + R.m[0 + 3 * 1]) * 0.5f; r2.y = d1; r2.z = (R.m[2 + 3 * 1] + R.m[1 + 3 * 2]) * 0.5f;
+				}
+				else { r2.x = (R.m[0 + 3 * 2] + R.m[2 + 3 * 0]) * 0.5f; r2.y = (R.m[2 + 3 * 1] + R.m[1 + 3 * 2]) * 0.5f; r2.z = d2; }
+			}
+
+			if (dot(r2, resultRot) < 0.0f) { r2.x *= -1.0f; r2.y *= -1.0f; r2.z *= -1.0f; }
+
+			r2 = normalize(r2);
+
+			resultRot.x = angle * r2.x; resultRot.y = angle * r2.y; resultRot.z = angle * r2.z;
+            //std::cout<<"4: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+		}
+	}
+
+	float shtot = 0.5f;
+	float theta = sqrt(dot(resultRot, resultRot));
+
+	if (theta > 0.00001f) shtot = sinf(theta * 0.5f) / theta;
+
+	SE3Pose halfrotor(0.0f, 0.0f, 0.0f, resultRot.x * -0.5f, resultRot.y * -0.5f, resultRot.z * -0.5f);
+
+	Vector3<float> rottrans = halfrotor.GetR() * T;
+
+	if (theta > 0.001f)
+	{
+		float denom = dot(resultRot, resultRot);
+		float param = dot(T, resultRot) * (1 - 2 * shtot) / denom;
+
+		rottrans.x -= resultRot.x * param; rottrans.y -= resultRot.y * param; rottrans.z -= resultRot.z * param;
+        //std::cout<<"5: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+        //this->PrintM(2);
+	}
+	else
+	{
+		float param = dot(T, resultRot) / 24;
+		rottrans.x -= resultRot.x * param; rottrans.y -= resultRot.y * param; rottrans.z -= resultRot.z * param;
+        //std::cout<<"6: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+	}
+
+	rottrans.x /= 2 * shtot; rottrans.y /= 2 * shtot; rottrans.z /= 2 * shtot;
+    //std::cout<<"7: "<<resultRot.x <<" "<<resultRot.y<<" "<<resultRot.z<<std::endl;
+    //this->PrintM(3);
 	this->params.each.rx = resultRot.x; this->params.each.ry = resultRot.y; this->params.each.rz = resultRot.z;
 	this->params.each.tx = rottrans.x; this->params.each.ty = rottrans.y; this->params.each.tz = rottrans.z;
 }
@@ -288,6 +421,11 @@ void SE3Pose::SetM(const Matrix4<float> & src)
 {
 	M = src;
 	SetParamsFromModelView();
+}
+void SE3Pose::SetGT(const Matrix4<float> & src)
+{
+	M = src;
+	//SetParamsFromGT();
 }
 
 void SE3Pose::SetR(const Matrix3<float> & R)

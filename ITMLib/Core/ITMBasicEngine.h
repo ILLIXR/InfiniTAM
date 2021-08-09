@@ -12,7 +12,8 @@
 #include "../Objects/Misc/ITMIMUCalibrator.h"
 
 #include "../../FernRelocLib/Relocaliser.h"
-
+#include <fstream>
+#include <chrono>
 namespace ITMLib
 {
 	template <typename TVoxel, typename TIndex>
@@ -38,6 +39,7 @@ namespace ITMLib
 		ITMRenderState *renderState_freeview;
 
 		ITMTracker *tracker;
+		
 		ITMIMUCalibrator *imuCalibrator;
 
 		FernRelocLib::Relocaliser<float> *relocaliser;
@@ -48,7 +50,18 @@ namespace ITMLib
 
 		/// Pointer to the current camera pose and additional tracking information
 		ITMTrackingState *trackingState;
-
+		//pyh added another set of tracker trackingState and trackingController (obsolete)
+		//ITMTracker *temp_tracker;
+		//ITMTrackingState *temp_trackingState;
+		//ITMTrackingController *temp_trackingController;
+        //pyh used these variables to dump tracker pose 
+        //unsigned pose_count;
+        std::ofstream pose_file;
+        //std::vector<std::vector<double>> pose_array;
+        std::vector<std::vector<float>> pose_array;
+        std::vector<std::vector<float>> prior_pose_array;
+        std::chrono::nanoseconds ICP_time;
+        //std::ofstream param_file;
 	public:
 		ITMView* GetView(void) { return view; }
 		ITMTrackingState* GetTrackingState(void) { return trackingState; }
@@ -57,10 +70,15 @@ namespace ITMLib
 		ITMScene<TVoxel, TIndex>* GetScene(void) { return scene; }
 
 		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement = NULL);
+		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Matrix4<float> cur_transform, ITMIMUMeasurement *imuMeasurement = NULL);
+		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Vector6<float> cur_tangent, ITMIMUMeasurement *imuMeasurement = NULL);
 
 		/// Extracts a mesh from the current scene and saves it to the model file specified by the file name
 		void SaveSceneToMesh(const char *fileName);
-
+        //pyh set initial pose
+        void SetInitialPose(ORUtils::Matrix4<float> init_transform);
+        //pyh set Seeding pose
+        void SetSeedingPose(ORUtils::Matrix4<float> init_transform);
 		/// save and load the full scene and relocaliser (if any) to/from file
 		void SaveToFile();
 		void LoadFromFile();

@@ -13,7 +13,7 @@
 
 #include "../../../ORUtils/HomkerMap.h"
 #include "../../../ORUtils/SVMClassifier.h"
-
+#include <chrono>
 namespace ITMLib
 {
 	/** Base class for engine performing ICP based depth tracking.
@@ -91,7 +91,17 @@ namespace ITMLib
 												  const Matrix4f &scenePose) = 0;
 
 	public:
-		void TrackCamera(ITMTrackingState *trackingState, const ITMView *view);
+        //pyh ICP statistics;
+        unsigned total_iter;
+        std::chrono::nanoseconds total_tracker_ICP_time;
+
+  		void TrackCamera(ITMTrackingState *trackingState, const ITMView *view);
+        //pyh
+  		void EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view);
+        void SetTrackingState(ITMTrackingState *trackingState, const ITMView *view);
+        void SetInvPose(Matrix4f& Inv_M);
+        unsigned GetICPIterNo();
+        std::chrono::nanoseconds GetICPLoopTime();
 
 		bool requiresColourRendering() const { return false; }
 		bool requiresDepthReliability() const { return true; }

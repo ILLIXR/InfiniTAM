@@ -16,7 +16,11 @@ namespace ITMLib
 	public:
 		/** Override */
 		virtual void TrackCamera(ITMTrackingState *trackingState, const ITMView *view);
-
+		
+        //pyh
+        virtual void EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view);
+        
+        
 		/** Override */
 		virtual bool requiresColourRendering() const;
 

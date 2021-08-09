@@ -1,10 +1,10 @@
-// Copyright 2014-2017 Oxford University Innovation Limited and the authors of InfiniTAM
+// Copyright 2013-2017 Oxford University Innovation Limited and the authors of InfiniTAM
 
 #pragma once
 
 #include "Vector.h"
 #include "Matrix.h"
-
+#include <iostream>
 namespace ORUtils
 {
 	/** \brief
@@ -18,6 +18,25 @@ namespace ORUtils
 			six parameters. The three rotation parameters are
 			the Lie algebra representation of SO3.
 		*/
+
+		/** The pose as a 4x4 transformation matrix ("modelview
+			matrix).
+		*/
+
+		/** This will update the minimal parameterisation from
+			the current modelview matrix.
+			*/
+		void SetParamsFromModelView();
+
+        //pyh add new param setting function that does not change tx ty tz
+		void SetParamsFromGT();
+
+		/** This will update the "modelview matrix" M from the
+			minimal representation.
+		*/
+		void SetModelViewFromParams();
+	public:
+		Matrix4<float> M;
 		union
 		{
 			float all[6];
@@ -26,24 +45,9 @@ namespace ORUtils
 				float rx, ry, rz;
 			}each;
 		} params;
-
-		/** The pose as a 4x4 transformation matrix ("modelview
-			matrix).
-		*/
-		Matrix4<float> M;
-
-		/** This will update the minimal parameterisation from
-			the current modelview matrix.
-			*/
-		void SetParamsFromModelView();
-
-		/** This will update the "modelview matrix" M from the
-			minimal representation.
-		*/
-		void SetModelViewFromParams();
-	public:
-
-		void SetBoth(const Matrix4<float> & M, const float params[6]);
+        //pyh add a method to print M to save some space in basic engine
+		void PrintM(int id);
+        void SetBoth(const Matrix4<float> & M, const float params[6]);
 
 		void SetFrom(float tx, float ty, float tz, float rx, float ry, float rz);
 		void SetFrom(const Vector3<float> &translation, const Vector3<float> &rotation);
@@ -85,6 +89,11 @@ namespace ORUtils
 		SE3Pose(float tx, float ty, float tz, float rx, float ry, float rz);
 		SE3Pose(const Vector6<float> & tangent);
 		SE3Pose(const Matrix3<float> &R, const Vector3<float> &t);
+		//pyh add new constructor
+		SE3Pose(const Matrix4<float> & src, bool groundtruth);
+		//pyh add new function
+		void SetGT(const Matrix4<float> &M);
+		
 		explicit SE3Pose(const float pose[6]);
 
 		SE3Pose(void);

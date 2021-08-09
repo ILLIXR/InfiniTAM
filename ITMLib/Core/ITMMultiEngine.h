@@ -59,6 +59,8 @@ namespace ITMLib
 
 		/// Process a frame with rgb and depth images and (optionally) a corresponding imu measurement
 		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement = NULL);
+		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Matrix4<float> cur_transform, ITMIMUMeasurement *imuMeasurement = NULL){printf("should not be here!!!!!!!!!multi\n");};
+		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Vector6<float> cur_transform, ITMIMUMeasurement *imuMeasurement = NULL){printf("should not be here!!!!!!!!!multi\n");};
 
 		/// Get a result image as output
 		Vector2i GetImageSize(void) const;

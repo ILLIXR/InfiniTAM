@@ -35,6 +35,8 @@ namespace ITMLib
 		/// Current pose of the depth camera.
 		ORUtils::SE3Pose *pose_d;
 
+        //pyh added a separate field for full groundtruth seeding
+        ORUtils::SE3Pose *gt_seeding_pose;
 		/// Tracking quality: 1.0: success, 0.0: failure
 		enum TrackingResult
 		{
@@ -74,7 +76,9 @@ namespace ITMLib
 		ITMTrackingState(Vector2i imgSize, MemoryDeviceType memoryType)
 		: pointCloud(new ITMPointCloud(imgSize, memoryType)),
 			pose_pointCloud(new ORUtils::SE3Pose),
-			pose_d(new ORUtils::SE3Pose)
+			pose_d(new ORUtils::SE3Pose),
+            //pyh seeding change
+            gt_seeding_pose(new ORUtils::SE3Pose)
 		{
 			Reset();
 		}
@@ -93,6 +97,8 @@ namespace ITMLib
 			this->pose_pointCloud->SetFrom(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 			this->trackerResult = TRACKING_GOOD;
 			this->trackerScore = 0.0f;
+            //pyh seeding change
+			this->gt_seeding_pose->SetFrom(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		}
 
 		// Suppress the default copy constructor and assignment operator

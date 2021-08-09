@@ -5,6 +5,7 @@
 #include "../Engines/Reconstruction/ITMSceneReconstructionEngineFactory.h"
 #include "../Engines/Swapping/ITMSwappingEngineFactory.h"
 #include "../Objects/RenderStates/ITMRenderState_VH.h"
+#include <iostream>
 using namespace ITMLib;
 
 template<class TVoxel, class TIndex>
@@ -39,6 +40,7 @@ void ITMDenseMapper<TVoxel,TIndex>::ProcessFrame(const ITMView *view, const ITMT
 	sceneRecoEngine->IntegrateIntoScene(scene, view, trackingState, renderState);
 
 	if (swappingEngine != NULL) {
+        //std::cout<<"triggered\n";
 		// swapping: CPU -> GPU
 		if (swappingMode == ITMLibSettings::SWAPPINGMODE_ENABLED) swappingEngine->IntegrateGlobalIntoLocal(scene, renderState);
 

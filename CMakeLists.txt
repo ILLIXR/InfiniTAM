@@ -12,6 +12,9 @@ find_package(Threads REQUIRED)
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ) 
 
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
 set(CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
@@ -59,4 +62,4 @@ ADD_SUBDIRECTORY(ORUtils)
 add_library(plugin SHARED plugin.cpp)
 TARGET_LINK_LIBRARIES(plugin CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 #TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
-target_link_libraries(plugin ${OpenCV_LIBS} )  
+target_link_libraries(plugin ${OpenCV_LIBS} Eigen3::Eigen)  

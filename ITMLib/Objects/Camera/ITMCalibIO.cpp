@@ -16,7 +16,7 @@ bool ITMLib::readIntrinsics(std::istream & src, ITMIntrinsics & dest)
 	src >> width >> height;
 	src >> focalLength[0] >> focalLength[1];
 	src >> centerPoint[0] >> centerPoint[1];
-    printf("calib width: %d, height %d , fx: %f, fy: %f, cx: %f, cy: %f\n", width, height, focalLength[0], focalLength[1], centerPoint[0], centerPoint[1]);
+    //printf("calib width: %d, height %d , fx: %f, fy: %f, cx: %f, cy: %f\n", width, height, focalLength[0], focalLength[1], centerPoint[0], centerPoint[1]);
 	if (src.fail()) return false;
 
 	dest.SetFrom(width, height, focalLength[0], focalLength[1], centerPoint[0], centerPoint[1]);
@@ -99,10 +99,10 @@ bool ITMLib::readRGBDCalib(std::istream & src, ITMRGBDCalib & dest)
 bool ITMLib::readRGBDCalib(const char *fileName, ITMRGBDCalib & dest)
 {
 	std::ifstream f(fileName);
-	printf("1 read calib file name %s\n", fileName);
 	if(f.good())
 	{
-	    printf("calib file is good\n");
+	    printf("read calibration file name %s\n", fileName);
+	  //  printf("calib file is good\n");
 	}
 	return ITMLib::readRGBDCalib(f, dest);
 }

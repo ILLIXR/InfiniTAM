@@ -70,6 +70,9 @@ namespace ITMLib
 
 		/// Process a frame with rgb and depth images and optionally a corresponding imu measurement
         virtual ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement = NULL) = 0;
+        // TODO pyh temp function for processing groundtruth
+        virtual ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Matrix4<float> cur_transform, ITMIMUMeasurement *imuMeasurement = NULL) = 0;
+        virtual ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Vector6<float> cur_tangent, ITMIMUMeasurement *imuMeasurement = NULL) = 0;
 
 		/// Get a result image as output
 		virtual Vector2i GetImageSize(void) const = 0;
@@ -78,7 +81,10 @@ namespace ITMLib
 
 		/// Extracts a mesh from the current scene and saves it to the model file specified by the file name
 		virtual void SaveSceneToMesh(const char *fileName) { };
-
+        //pyh add a function set pose
+        virtual void SetInitialPose(ORUtils::Matrix4<float> init_transform) { };
+        //pyh add a function for seeding
+        virtual void SetSeedingPose(ORUtils::Matrix4<float> init_transform) { };
 		/// save and load the full scene and relocaliser (if any) to/from file
 		virtual void SaveToFile() { };
 		virtual void LoadFromFile() { };

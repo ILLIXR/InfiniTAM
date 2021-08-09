@@ -39,7 +39,8 @@ namespace ITMLib
 				delete trackers[i];
 			}
 		}
-
+        //pyh
+        void EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view){};
 		//#################### COPY CONSTRUCTOR & ASSIGNMENT OPERATOR ####################
 	private:
 		// Deliberately private and unimplemented

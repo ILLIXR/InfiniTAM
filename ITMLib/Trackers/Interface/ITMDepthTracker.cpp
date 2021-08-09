@@ -232,6 +232,7 @@ void ITMDepthTracker::UpdatePoseQuality(int noValidPoints_old, float *hessian_go
 
 void ITMDepthTracker::TrackCamera(ITMTrackingState *trackingState, const ITMView *view)
 {
+    printf("depth tracker enabled\n");
 	if (!trackingState->HasValidPointCloud()) return;
 
 	this->SetEvaluationData(trackingState, view);

@@ -4,11 +4,11 @@
 
 #include "../../Objects/Tracking/ITMTrackingState.h"
 #include "../../Objects/Views/ITMView.h"
-
+#include <chrono>
 namespace ITMLib
 {
 	/** \brief
-	    Basic interface to any sort of trackers that will align an
+	    Basic interface to any sort of :rackers that will align an
 	    incoming view with an existing scene.
 	*/
 	class ITMTracker
@@ -36,5 +36,11 @@ namespace ITMLib
 		virtual bool requiresPointCloudRendering() const = 0;
 
 		virtual ~ITMTracker(void) {}
+        //pyh
+        virtual void EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view) =0;
+        virtual void SetTrackingState(ITMTrackingState *trackingState, const ITMView *view){}
+        virtual void SetInvPose(Matrix4f& Inv_M){}
+        virtual unsigned GetICPIterNo(){}
+        virtual std::chrono::nanoseconds GetICPLoopTime(){}
 	};
 }
