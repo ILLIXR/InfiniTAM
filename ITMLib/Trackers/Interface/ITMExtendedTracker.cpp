@@ -14,6 +14,7 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <chrono>
+#include <fstream>
 using namespace ITMLib;
 
 const int ITMExtendedTracker::MIN_VALID_POINTS_DEPTH = 100;
@@ -149,6 +150,29 @@ void ITMExtendedTracker::SetInvPose(Matrix4f& Inv_M)
 {
     this->trackingState->trackerResult = ITMTrackingState::TRACKING_GOOD;
     this->trackingState->pose_d->SetInvM(Inv_M);
+}
+void ITMExtendedTracker::PrintFrameICPIter()
+{
+    std::ofstream frame_ICP_file;
+    //if(!iter_map.empty())
+    if(!iter_map.empty() && !ICP_time_map.empty())
+    {
+    
+        frame_ICP_file.open("827_teddy_CPU_MaxF_newstat_ns_frame_info_2.csv");
+    //for(auto i=0; i<iter_map.size(); i++)
+    //{
+    //    frame_ICP_file<<i<<" "<<iter_map[i]<<" "<<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i]).count()<<"\n";
+    //}
+        for(auto i=0; i<iter_map.size(); i++)
+        {
+            frame_ICP_file<<i<<" "<<iter_map[i][0]<<" "<<iter_map[i][1]<<" "<<iter_map[i][2]<<" "<<iter_map[i][3]<<" "
+            <<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i][0]).count()<<" "
+            <<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i][1]).count()<<" "
+            <<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i][2]).count()<<" "
+            <<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i][3]).count()<<"\n";
+        }
+        frame_ICP_file.close();
+    }
 }
 
 void ITMExtendedTracker::SetupLevels(int numIterCoarse, int numIterFine, float spaceThreshCoarse, float spaceThreshFine, float colourThreshCoarse, float colourThreshFine)
@@ -356,7 +380,6 @@ void ITMExtendedTracker::ApplyDelta(const Matrix4f & para_old, const float *delt
         case TRACKER_ITERATION_TRANSLATION:
             step[0] = 0.0f; step[1] = 0.0f; step[2] = 0.0f;
             step[3] = (float)(delta[0]); step[4] = (float)(delta[1]); step[5] = (float)(delta[2]);
-            //std::cout<<"it translation\n";
             break;
         default:
         case TRACKER_ITERATION_BOTH:
@@ -442,6 +465,7 @@ void ITMExtendedTracker::UpdatePoseQuality(int noValidPoints_old, float *hessian
 //pyh
 void ITMExtendedTracker::EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view)
 {
+    printf("================should not trigger\n");
     this->SetEvaluationData(trackingState, view);
     this->PrepareForEvaluation();
 }
@@ -450,7 +474,6 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
 {
     //printf("extended tracker track camera\n");
     if (!trackingState->HasValidPointCloud()) {
-        //std::cout<<"triggered\n";
         return;
     }
 
@@ -474,32 +497,89 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
     memset(hessian_depth_good, 0, sizeof(hessian_depth_good));
     // pyh this has 4 levels
     //std::cout<<"how many levels: "<<viewHierarchy_Depth->GetNoLevels()<<"\n";
-    
-    //pyh ICP timing tracking
-    auto ICP_loop_begin = std::chrono::high_resolution_clock::now();
+
+    //pyh relative ground truth code
+    //ORUtils::Matrix4<float> updated_ICP_M;
+    //Eigen::Matrix3f gt_current_rot, gt_rel_rot, gt_prev_rot;
+    //gt_current_rot(0,0) = trackingState->gt_seeding_pose->GetInvM().m[0]; gt_current_rot(0,1) = trackingState->gt_seeding_pose->GetInvM().m[4]; gt_current_rot(0,2) = trackingState->gt_seeding_pose->GetInvM().m[8];
+    //gt_current_rot(1,0) = trackingState->gt_seeding_pose->GetInvM().m[1]; gt_current_rot(1,1) = trackingState->gt_seeding_pose->GetInvM().m[5]; gt_current_rot(1,2) = trackingState->gt_seeding_pose->GetInvM().m[9];
+    //gt_current_rot(2,0) = trackingState->gt_seeding_pose->GetInvM().m[2]; gt_current_rot(2,1) = trackingState->gt_seeding_pose->GetInvM().m[6]; gt_current_rot(2,2) = trackingState->gt_seeding_pose->GetInvM().m[10];
+
+    //gt_prev_rot(0,0) = trackingState->gt_prev_pose->GetInvM().m[0]; gt_prev_rot(0,1) = trackingState->gt_prev_pose->GetInvM().m[4]; gt_prev_rot(0,2) = trackingState->gt_prev_pose->GetInvM().m[8];
+    //gt_prev_rot(1,0) = trackingState->gt_prev_pose->GetInvM().m[1]; gt_prev_rot(1,1) = trackingState->gt_prev_pose->GetInvM().m[5]; gt_prev_rot(1,2) = trackingState->gt_prev_pose->GetInvM().m[9];
+    //gt_prev_rot(2,0) = trackingState->gt_prev_pose->GetInvM().m[2]; gt_prev_rot(2,1) = trackingState->gt_prev_pose->GetInvM().m[6]; gt_prev_rot(2,2) = trackingState->gt_prev_pose->GetInvM().m[10];
+
+    ////gt_rel_rot = gt_current_rot.inverse() * gt_prev_rot;
+    //gt_rel_rot = gt_prev_rot.inverse() * gt_current_rot;
+
+    //Eigen::Vector3f gt_current_trans, gt_rel_trans, gt_prev_trans;
+    //gt_current_trans(0) = trackingState->gt_seeding_pose->GetInvM().m[12]; gt_current_trans(1) = trackingState->gt_seeding_pose->GetInvM().m[13]; gt_current_trans(2) = trackingState->gt_seeding_pose->GetInvM().m[14];
+
+    //gt_prev_trans(0) = trackingState->gt_prev_pose->GetInvM().m[12]; gt_prev_trans(1) = trackingState->gt_prev_pose->GetInvM().m[13]; gt_prev_trans(2) = trackingState->gt_prev_pose->GetInvM().m[14];
+
+    //gt_rel_trans = gt_current_trans - gt_prev_trans;
+
+    //Eigen::Matrix3f ICP_rot, ICP_adj_rot;
+    //Eigen::Vector3f ICP_trans,ICP_adj_trans;
+    //ICP_rot(0,0) = trackingState->pose_d->GetInvM().m[0]; ICP_rot(0,1) = trackingState->pose_d->GetInvM().m[4]; ICP_rot(0,2) = trackingState->pose_d->GetInvM().m[8];
+    //ICP_rot(1,0) = trackingState->pose_d->GetInvM().m[1]; ICP_rot(1,1) = trackingState->pose_d->GetInvM().m[5]; ICP_rot(1,2) = trackingState->pose_d->GetInvM().m[9];
+    //ICP_rot(2,0) = trackingState->pose_d->GetInvM().m[2]; ICP_rot(2,1) = trackingState->pose_d->GetInvM().m[6]; ICP_rot(2,2) = trackingState->pose_d->GetInvM().m[10];
+
+    //ICP_trans(0) = trackingState->pose_d->GetInvM().m[12]; ICP_trans(1) = trackingState->pose_d->GetInvM().m[13]; ICP_trans(2) = trackingState->pose_d->GetInvM().m[14];
+
+    //ICP_adj_trans = ICP_trans + gt_rel_trans;
+    //ICP_adj_rot = ICP_rot * gt_rel_rot;
+
+    //updated_ICP_M.m[0] = ICP_adj_rot(0,0); updated_ICP_M.m[1] = ICP_adj_rot(1,0); updated_ICP_M.m[2] = ICP_adj_rot(2,0); updated_ICP_M.m[3] = 0.0f;
+    //updated_ICP_M.m[4] = ICP_adj_rot(0,1); updated_ICP_M.m[5] = ICP_adj_rot(1,1); updated_ICP_M.m[6] = ICP_adj_rot(2,1); updated_ICP_M.m[7] = 0.0f;
+    //updated_ICP_M.m[8] = ICP_adj_rot(0,2); updated_ICP_M.m[9] = ICP_adj_rot(1,2); updated_ICP_M.m[10] = ICP_adj_rot(2,2); updated_ICP_M.m[11] = 0.0f;
+    //updated_ICP_M.m[12] = ICP_adj_trans(0); updated_ICP_M.m[13] = ICP_adj_trans(1); updated_ICP_M.m[14] = ICP_adj_trans(2); updated_ICP_M.m[15] = 1.0f;
+
+    //pyh ICP frame timing tracking
+    //unsigned single_iter=0;
+    //auto ICP_loop_begin = std::chrono::high_resolution_clock::now();
+
+    //pyh ICP per pyramid timing tracking
+    std::vector<unsigned> single_pyramid_iter;
+    std::vector<std::chrono::nanoseconds> single_pyramid_time;
+
     for (int levelId = viewHierarchy_Depth->GetNoLevels() - 1; levelId >= 0; levelId--)
     {
+        //pyh per pyramid timing start
+        auto ICP_pyramid_begin = std::chrono::high_resolution_clock::now();
+
         SetEvaluationParams(levelId);
 
         if (currentIterationType == TRACKER_ITERATION_NONE) continue;
 
-        
         //pyh  seeding change only trigger at outer level
         Matrix4f approxInvPose;
         ORUtils::SE3Pose lastKnownGoodPose;
         //only used for full seeding
         //if(levelId == (viewHierarchy_Depth->GetNoLevels()-1))
         //{
-        //    //std::cout<<"trigger once\n";
         //    approxInvPose = trackingState->gt_seeding_pose->GetInvM();
         //    lastKnownGoodPose.SetFrom(trackingState->gt_seeding_pose);
+        //    //lastKnownGoodPose.SetFrom(trackingState->pose_d);
         //}else
         {
-            //std::cout<<"trigger three timess\n";
             approxInvPose = trackingState->pose_d->GetInvM();
             lastKnownGoodPose.SetFrom(trackingState->pose_d);
         }
-        
+
+        //816 testing use groundpose relative difference
+        //if(levelId == (viewHierarchy_Depth->GetNoLevels()-1))
+        //{
+        //    approxInvPose = updated_ICP_M;
+        //    lastKnownGoodPose.SetInvM(updated_ICP_M);
+        //}
+        //else
+        //{
+        //    approxInvPose = trackingState->pose_d->GetInvM();
+        //    lastKnownGoodPose.SetFrom(trackingState->pose_d);
+        //}
+
+
         //pyh testing seed pose code
         //std::cout <<"LastKnown pose translation: "<<lastKnownGoodPose.GetInvM().m[12] <<" "<<lastKnownGoodPose.GetInvM().m[13]<<" "<<lastKnownGoodPose.GetInvM().m[14]<<"\n";
         //Eigen::Matrix3f testr;
@@ -516,7 +596,8 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
         //testr1(2,0) = approxInvPose.m[2]; testr1(2,1) = approxInvPose.m[6]; testr1(2,2) = approxInvPose.m[10];
         //Eigen::Quaternionf testq1(testr1);
         //std::cout <<"approxInvPose orentaion: "<< testq1.normalized().x() <<" "<<testq1.normalized().y()<<" "<<testq1.normalized().z()<<" "<<testq1.normalized().w()<<"\n";
-        
+
+        //pyh original code
         //ORUtils::SE3Pose lastKnownGoodPose(*(trackingState->pose_d));
 
         float f_old = std::numeric_limits<float>::max();
@@ -524,6 +605,7 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
         int iterNo = 0;
         for (iterNo = 0; iterNo < noIterationsPerLevel[levelId]; iterNo++)
         {
+            //std::cout<<noIterationsPerLevel[levelId]<<"\n";
             float hessian_depth[6 * 6], hessian_RGB[6 * 6];
             float nabla_depth[6], nabla_RGB[6];
             float f_depth = 0.f, f_RGB = 0.f;
@@ -554,22 +636,22 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
                 }
             }
 
-        //    if (useColour)
-        //    {
-        //        noValidPoints_RGB = ComputeGandH_RGB(f_RGB, nabla_RGB, hessian_RGB, approxInvPose);
+            //    if (useColour)
+            //    {
+            //        noValidPoints_RGB = ComputeGandH_RGB(f_RGB, nabla_RGB, hessian_RGB, approxInvPose);
 
-        //        if (noValidPoints_RGB > MIN_VALID_POINTS_DEPTH)
-        //        {
-        //            // Normalize nabla and hessian
-        //            for (int i = 0; i < 6 * 6; ++i) hessian_RGB[i] /= noValidPoints_RGB;
-        //            for (int i = 0; i < 6; ++i) nabla_RGB[i] /= noValidPoints_RGB;
-        //            f_RGB /= noValidPoints_RGB;
-        //        }
-        //        else
-        //        {
-        //            f_RGB = std::numeric_limits<float>::max();
-        //        }
-        //    }
+            //        if (noValidPoints_RGB > MIN_VALID_POINTS_DEPTH)
+            //        {
+            //            // Normalize nabla and hessian
+            //            for (int i = 0; i < 6 * 6; ++i) hessian_RGB[i] /= noValidPoints_RGB;
+            //            for (int i = 0; i < 6; ++i) nabla_RGB[i] /= noValidPoints_RGB;
+            //            f_RGB /= noValidPoints_RGB;
+            //        }
+            //        else
+            //        {
+            //            f_RGB = std::numeric_limits<float>::max();
+            //        }
+            //    }
 
             float hessian_new[6 * 6];
             float nabla_new[6];
@@ -623,18 +705,38 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
             //    throw std::runtime_error("Cannot track the camera when both useDepth and useColour are false.");
             //}
 
-        //    // check if error increased. If so, revert
+            //    // check if error increased. If so, revert
             if ((noValidPoints_new <= 0) || (f_new >= f_old))
             {
-                //pyh comment out 
                 trackingState->pose_d->SetFrom(&lastKnownGoodPose);
-                //std::cout<<"error increased\n";
-                approxInvPose = trackingState->pose_d->GetInvM();
+                //full seeding change
+                //if(levelId == (viewHierarchy_Depth->GetNoLevels()-1) && iterNo ==0)
+                //{
+                //    //std::cout<<"error increased revert\n";
+                //    approxInvPose = trackingState->gt_seeding_pose->GetInvM();
+                //    //relative pose
+                //    //approxInvPose = updated_ICP_M;
+                //}
+                //else
+                {
+                    approxInvPose = trackingState->pose_d->GetInvM();
+                }
                 lambda *= 10.0f;
             }
             else
             {
-                lastKnownGoodPose.SetFrom(trackingState->pose_d);
+                //full seeding change
+                //if(levelId == (viewHierarchy_Depth->GetNoLevels()-1) && iterNo ==0)
+                //{
+                //    //std::cout<<"setting groundtruth as last known good pose\n";
+                //    lastKnownGoodPose.SetFrom(trackingState->gt_seeding_pose);
+                //    //relative pose
+                //    //lastKnownGoodPose.SetInvM(updated_ICP_M);
+                //}
+                //else
+                {
+                    lastKnownGoodPose.SetFrom(trackingState->pose_d);
+                }
                 f_old = f_new;
 
                 for (int i = 0; i < 6 * 6; ++i) hessian_good[i] = hessian_new[i];
@@ -656,37 +758,27 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
             ComputeDelta(step, nabla_good, A, currentIterationType != TRACKER_ITERATION_BOTH);
 
             ApplyDelta(approxInvPose, step, approxInvPose);
-            //pyh comment out
             trackingState->pose_d->SetInvM(approxInvPose);
             trackingState->pose_d->Coerce();
             approxInvPose = trackingState->pose_d->GetInvM();
-            //ORUtils::SE3Pose *temp_pose = new ORUtils::SE3Pose(approxInvPose);
-            //temp_pose->Coerce();
-            //approxInvPose = temp_pose->GetInvM(); 
             // if step is small, assume it's going to decrease the error and finish
             if (HasConverged(step)) break;
         }
         total_iter += iterNo + 1;
+        //single_iter += iterNo + 1;
+        //pyh per pyramid level change
+        auto ICP_pyramid_end = std::chrono::high_resolution_clock::now();
+        single_pyramid_time.push_back(ICP_pyramid_end - ICP_pyramid_begin);
+        single_pyramid_iter.push_back(iterNo+1);
     }
-    auto ICP_loop_end = std::chrono::high_resolution_clock::now();
-    total_tracker_ICP_time += ICP_loop_end-ICP_loop_begin;
+    //pyh per frame mesurement
+    //auto ICP_loop_end = std::chrono::high_resolution_clock::now();
+    //total_tracker_ICP_time += ICP_loop_end-ICP_loop_begin;
+    //iter_map.push_back(single_iter);
+    //ICP_time_map.push_back(ICP_loop_end-ICP_loop_begin);
+    
+    //pyh per pyramid level measurement
+    iter_map.push_back(single_pyramid_iter);
+    ICP_time_map.push_back(single_pyramid_time);
     this->UpdatePoseQuality(noValidPoints_depth_good, hessian_depth_good, f_depth_good);
-
-    /*
-       printf("tracker transformation matrix: \n  %f, %f, %f, %f\n %f, %f, %f, %f \n, %f, %f, %f, %f\n %f, %f, %f, %f\n", 
-       trackingState->pose_d->GetM().m[0], trackingState->pose_d->GetM().m[4], trackingState->pose_d->GetM().m[8], trackingState->pose_d->GetM().m[12],
-       trackingState->pose_d->GetM().m[1], trackingState->pose_d->GetM().m[5], trackingState->pose_d->GetM().m[9], trackingState->pose_d->GetM().m[13],
-       trackingState->pose_d->GetM().m[2], trackingState->pose_d->GetM().m[6], trackingState->pose_d->GetM().m[10], trackingState->pose_d->GetM().m[14],
-       trackingState->pose_d->GetM().m[3], trackingState->pose_d->GetM().m[7], trackingState->pose_d->GetM().m[11], trackingState->pose_d->GetM().m[15]
-       );
-       */
-    //std::cout<<"tracker transformation matrix: \n"<<trackingState->pose_d->GetM()<<std::endl;
-    //std::cout<<"tracker tx ty tz:\n"<< trackingState->pose_d->params.each.tx<<" "
-    //                                <<trackingState->pose_d->params.each.ty<<" "
-    //                              <<trackingState->pose_d->params.each.tz<<"\n\n";
-
-    //std::cout<<"tracker rx ry rz:\n"<<trackingState->pose_d->params.each.rx<<" "
-    //                                <<trackingState->pose_d->params.each.ry<<" "
-    //                                <<trackingState->pose_d->params.each.rz<<"\n\n";
-
 }

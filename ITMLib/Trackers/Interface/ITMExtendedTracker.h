@@ -14,6 +14,7 @@
 #include "../../../ORUtils/HomkerMap.h"
 #include "../../../ORUtils/SVMClassifier.h"
 #include <chrono>
+#include <vector>
 namespace ITMLib
 {
 	/** Base class for engine performing ICP based depth tracking.
@@ -93,15 +94,21 @@ namespace ITMLib
 	public:
         //pyh ICP statistics;
         unsigned total_iter;
+        //std::vector<unsigned> iter_map;
+        //std::vector<std::chrono::nanoseconds> ICP_time_map;
+        //pyh per pyramid level measurement
+        std::vector<std::vector<unsigned>> iter_map;
+        std::vector<std::vector<std::chrono::nanoseconds>> ICP_time_map;
         std::chrono::nanoseconds total_tracker_ICP_time;
+        unsigned GetICPIterNo();
+        std::chrono::nanoseconds GetICPLoopTime();
+        void PrintFrameICPIter();
 
   		void TrackCamera(ITMTrackingState *trackingState, const ITMView *view);
         //pyh
   		void EvaluationPrep(ITMTrackingState *trackingState, const ITMView *view);
         void SetTrackingState(ITMTrackingState *trackingState, const ITMView *view);
         void SetInvPose(Matrix4f& Inv_M);
-        unsigned GetICPIterNo();
-        std::chrono::nanoseconds GetICPLoopTime();
 
 		bool requiresColourRendering() const { return false; }
 		bool requiresDepthReliability() const { return true; }

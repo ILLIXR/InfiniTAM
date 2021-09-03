@@ -42,5 +42,6 @@ namespace ITMLib
         virtual void SetInvPose(Matrix4f& Inv_M){}
         virtual unsigned GetICPIterNo(){}
         virtual std::chrono::nanoseconds GetICPLoopTime(){}
+        virtual void PrintFrameICPIter(){}
 	};
 }

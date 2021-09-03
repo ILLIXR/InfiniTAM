@@ -16,7 +16,7 @@
 
 using namespace ITMLib;
 
-    template <typename TVoxel, typename TIndex>
+template <typename TVoxel, typename TIndex>
 ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d)
 {
     this->settings = settings;
@@ -53,11 +53,6 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
     trackingState->trackerResult = ITMTrackingState::TRACKING_GOOD;
     tracker->UpdateInitialPose(trackingState);
 
-    //pyh steps needed to dump pose
-    //pose_count=0;
-    //pose_file.open("85_cabinet_calibfr3_voxel10_be_gt_output.csv");
-    //param_file.open("tracker_param.csv");
-
     view = NULL; // will be allocated by the view builder
 
     if (settings->behaviourOnFailure == settings->FAILUREMODE_RELOCALISE)
@@ -69,6 +64,7 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
     trackingActive = true;
     fusionActive = true;
     mainProcessingActive = true;
+    //pyh true or false?
     trackingInitialised = false;
     //trackingInitialised = true;
     relocalisationCount = 0;
@@ -84,7 +80,7 @@ void ITMBasicEngine<TVoxel,TIndex>::SetInitialPose(ORUtils::Matrix4<float> init_
     //trackingState->pose_d->SetM(init_transform);
     trackingState->pose_d->SetInvM(init_transform);
     
-    //Matrix4f approxInvPose = trackingState->pose_d->GetInvM();
+    Matrix4f approxInvPose = trackingState->pose_d->GetInvM();
     //std::cout <<"initial pose translation: "<<approxInvPose.m[12] <<" "<<approxInvPose.m[13]<<" "<<approxInvPose.m[14]<<"\n";
     //Eigen::Matrix3f testr;  
     //testr(0,0) = approxInvPose.m[0]; testr(0,1) = approxInvPose.m[4]; testr(0,2) = approxInvPose.m[8];
@@ -120,7 +116,8 @@ void ITMBasicEngine<TVoxel,TIndex>::SetInitialPose(ORUtils::Matrix4<float> init_
 template<typename TVoxel, typename TIndex>
 void ITMBasicEngine<TVoxel,TIndex>::SetSeedingPose(ORUtils::Matrix4<float> gt_pose)
 {
-    //Matrix4f approxInvPose = gt_pose;
+    trackingState->gt_prev_pose->SetInvM(gt_pose);
+    //Matrix4f approxInvPose = trackingState->gt_seeding_pose->GetInvM();
     //std::cout <<"input seeding pose translation: "<<approxInvPose.m[12] <<" "<<approxInvPose.m[13]<<" "<<approxInvPose.m[14]<<"\n";
     //Eigen::Matrix3f testr;  
     //testr(0,0) = approxInvPose.m[0]; testr(0,1) = approxInvPose.m[4]; testr(0,2) = approxInvPose.m[8];
@@ -128,11 +125,9 @@ void ITMBasicEngine<TVoxel,TIndex>::SetSeedingPose(ORUtils::Matrix4<float> gt_po
     //testr(2,0) = approxInvPose.m[2]; testr(2,1) = approxInvPose.m[6]; testr(2,2) = approxInvPose.m[10];
     //Eigen::Quaternionf testq(testr);
     //std::cout <<"input seeding pose orentaion: "<< testq.normalized().x() <<" "<<testq.normalized().y()<<" "<<testq.normalized().z()<<" "<<testq.normalized().w()<<"\n";
-
-    trackingState->gt_seeding_pose->SetInvM(gt_pose);
 }
 
-    template <typename TVoxel, typename TIndex>
+template <typename TVoxel, typename TIndex>
 ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 {
     delete renderState_live;
@@ -165,17 +160,18 @@ ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 {
     //pyh: need to close pose & param file
-    //std::cout<<"pose array size"<<pose_array.size()<<std::endl;
+    pose_file.open("827_teddy_CPU_MaxF_newstat_ns_2.csv");
     for(auto i=0; i<pose_array.size(); i++)
     {
         for(auto j=0; j<(pose_array[i].size()-1); j++)
         {
-            //pose_file<<pose_array[i][j]<<" ";
+            pose_file<<pose_array[i][j]<<" ";
         }
-        //pose_file<<pose_array[i][(pose_array[i].size()-1)]<<std::endl;
+        pose_file<<pose_array[i][(pose_array[i].size()-1)]<<std::endl;
     }
-    //pose_file.close();
+    pose_file.close();
     //pyh print icp time
+    trackingController->tracker->PrintFrameICPIter();
     std::cout<<"ICP loop total time: "<<std::chrono::duration_cast<std::chrono::nanoseconds>(trackingController->tracker->GetICPLoopTime()).count()<<"ns\n";
     std::cout<<"ICP loop total iteration: "<<trackingController->tracker->GetICPIterNo()<<"\n";
     std::cout<<"ICP total time: "<<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time).count()<<"ns\n";
@@ -343,32 +339,36 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
         trackingController->Track(trackingState, view); 
         auto ICP_end = std::chrono::high_resolution_clock::now();
         //std::cout<<"current iteration ICP timer: "<< std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_end-ICP_begin).count()<<"\n"; 
-        ICP_time += ICP_end - ICP_begin;  
+        ICP_time += ICP_end - ICP_begin; 
+        //update the previous pose for next frame;
+        trackingState->gt_prev_pose = trackingState->gt_seeding_pose; 
     }
 
-    //pyh used for dumping ICP pose
-    //std::vector<float> single_pose;
-    //single_pose.push_back(trackingState->pose_d->GetM().m[12]);
-    //single_pose.push_back(trackingState->pose_d->GetM().m[13]);
-    //single_pose.push_back(trackingState->pose_d->GetM().m[14]);
-    //Eigen::Matrix3f testr;
-    //testr(0,0) = trackingState->pose_d->GetM().m[0];
-    //testr(1,0) = trackingState->pose_d->GetM().m[1];
-    //testr(2,0) = trackingState->pose_d->GetM().m[2];
-    //testr(0,1) = trackingState->pose_d->GetM().m[4];
-    //testr(1,1) = trackingState->pose_d->GetM().m[5];
-    //testr(2,1) = trackingState->pose_d->GetM().m[6];
-    //testr(0,2) = trackingState->pose_d->GetM().m[8];
-    //testr(1,2) = trackingState->pose_d->GetM().m[9];
-    //testr(2,2) = trackingState->pose_d->GetM().m[10];
+    //dump inv ICP pose
+    std::vector<float> single_pose;
+    single_pose.push_back(trackingState->pose_d->GetInvM().m[12]);
+    single_pose.push_back(trackingState->pose_d->GetInvM().m[13]);
+    single_pose.push_back(trackingState->pose_d->GetInvM().m[14]);
+    Eigen::Matrix3f testr;
+    testr(0,0) = trackingState->pose_d->GetInvM().m[0];
+    testr(1,0) = trackingState->pose_d->GetInvM().m[1];
+    testr(2,0) = trackingState->pose_d->GetInvM().m[2];
+    testr(0,1) = trackingState->pose_d->GetInvM().m[4];
+    testr(1,1) = trackingState->pose_d->GetInvM().m[5];
+    testr(2,1) = trackingState->pose_d->GetInvM().m[6];
+    testr(0,2) = trackingState->pose_d->GetInvM().m[8];
+    testr(1,2) = trackingState->pose_d->GetInvM().m[9];
+    testr(2,2) = trackingState->pose_d->GetInvM().m[10];
 
-    //Eigen::Quaternionf testq(testr);
-    //single_pose.push_back(testq.normalized().x());
-    //single_pose.push_back(testq.normalized().y());
-    //single_pose.push_back(testq.normalized().z());
-    //single_pose.push_back(testq.normalized().w());
-    //pose_array.push_back(single_pose);
-    
+    Eigen::Quaternionf testq(testr);
+    single_pose.push_back(testq.normalized().x());
+    single_pose.push_back(testq.normalized().y());
+    single_pose.push_back(testq.normalized().z());
+    single_pose.push_back(testq.normalized().w());
+    pose_array.push_back(single_pose);
+    //std::cout<<trackingState->pose_d->GetInvM().m[12]<<" "<<trackingState->pose_d->GetInvM().m[13]<<" "<<trackingState->pose_d->GetInvM().m[14]<<" "<<testq.normalized().x()<<" "<<testq.normalized().y()<<" "<<testq.normalized().z()<<" "<<testq.normalized().w()<<"\n"; 
+
+
     ITMTrackingState::TrackingResult trackerResult = ITMTrackingState::TRACKING_GOOD;
 
     switch (settings->behaviourOnFailure) {
@@ -476,49 +476,23 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 
     if (trackingActive) 
     {
-        //ORUtils::Matrix4<float> temp_trans_inv;
-        //temp_trans.inv(temp_trans_inv);
-        //cur_transform.inv(cur_trans_inv);
-        //trackingState->pose_d->SetM(cur_transform);
+        //trackingController->Track(trackingState, view); 
         trackingState->pose_d->SetInvM(cur_transform);
-        //trackingState->pose_d->SetGT(cur_transform);
-        
-        //trackingState->pose_d->PrintM(1);
-        //trackingState->pose_d->SetInvM(temp_trans_inv);
-
-        //trackingState->pose_d->PrintM(2);
-        //trackingState->pose_d->M = test;
-        //next_pose->PrintM(0);
-        //Matrix4f inv_M;
-        //cur_transform.inv(inv_M);
-        //trackingState->pose_d->SetInvM(inv_M);
-        //trackingState->pose_d->Coerce();
-        //trackingState->trackerResult = ITMTrackingState::TRACKING_GOOD;
-
-        //trackingState->pose_d->SetInvM(cur_transform);
-        //trackingController->tracker->SetInvPose(cur_transform);
-        //trackingController->Track(trackingState, view);
-        //Matrix4f M_d;
-        //std::cout<<"prior: "<<trackingState->pose_d->GetM().m[0]<<"\n";
-        //M_d = trackingState->pose_d->GetM();
-        //
-        //M_d.m[0] =100;
-        //std::cout<<"after: "<<trackingState->pose_d->GetM().m[0]<<"\n";
 
         std::vector<float> single_pose;
-        single_pose.push_back(trackingState->pose_d->GetM().m[12]);
-        single_pose.push_back(trackingState->pose_d->GetM().m[13]);
-        single_pose.push_back(trackingState->pose_d->GetM().m[14]);
+        single_pose.push_back(trackingState->pose_d->GetInvM().m[12]);
+        single_pose.push_back(trackingState->pose_d->GetInvM().m[13]);
+        single_pose.push_back(trackingState->pose_d->GetInvM().m[14]);
         Eigen::Matrix3f testr;
-        testr(0,0) = trackingState->pose_d->GetM().m[0];
-        testr(1,0) = trackingState->pose_d->GetM().m[1];
-        testr(2,0) = trackingState->pose_d->GetM().m[2];
-        testr(0,1) = trackingState->pose_d->GetM().m[4];
-        testr(1,1) = trackingState->pose_d->GetM().m[5];
-        testr(2,1) = trackingState->pose_d->GetM().m[6];
-        testr(0,2) = trackingState->pose_d->GetM().m[8];
-        testr(1,2) = trackingState->pose_d->GetM().m[9];
-        testr(2,2) = trackingState->pose_d->GetM().m[10];
+        testr(0,0) = trackingState->pose_d->GetInvM().m[0];
+        testr(1,0) = trackingState->pose_d->GetInvM().m[1];
+        testr(2,0) = trackingState->pose_d->GetInvM().m[2];
+        testr(0,1) = trackingState->pose_d->GetInvM().m[4];
+        testr(1,1) = trackingState->pose_d->GetInvM().m[5];
+        testr(2,1) = trackingState->pose_d->GetInvM().m[6];
+        testr(0,2) = trackingState->pose_d->GetInvM().m[8];
+        testr(1,2) = trackingState->pose_d->GetInvM().m[9];
+        testr(2,2) = trackingState->pose_d->GetInvM().m[10];
 
         Eigen::Quaternionf testq(testr);
         Eigen::Quaternionf testq_norm = testq.normalized();
@@ -565,8 +539,6 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
         //find and add keyframe, if necessary
         bool hasAddedKeyframe = relocaliser->ProcessFrame(view->depth, trackingState->pose_d, 0, 1, &NN, &distances, trackerResult == ITMTrackingState::TRACKING_GOOD && relocalisationCount == 0);
 
-        // bool hasAddedKeyframe = relocaliser->ProcessFrame(view->depth, temp_trackingState->pose_d, 0, 1, &NN, &distances, trackerResult == ITMTrackingState::TRACKING_GOOD && relocalisationCount == 0);
-
         //frame not added and tracking failed -> we need to relocalise
         if (!hasAddedKeyframe && trackerResult == ITMTrackingState::TRACKING_FAILED)
         {
@@ -583,14 +555,6 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
             trackingController->Track(trackingState, view);
 
             trackerResult = trackingState->trackerResult;
-
-            //temp_trackingState->pose_d->SetFrom(&keyframe.pose);
-
-            //denseMapper->UpdateVisibleList(view, temp_trackingState, scene, renderState_live, true);
-            //temp_trackingController->Prepare(temp_trackingState, scene, view, visualisationEngine, renderState_live); 
-            //temp_trackingController->Track(temp_trackingState, view);
-
-            //trackerResult = temp_trackingState->trackerResult;
         }
     }
 
@@ -598,7 +562,6 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
     if ((trackerResult == ITMTrackingState::TRACKING_GOOD || !trackingInitialised) && (fusionActive) && (relocalisationCount == 0)) {
         // fusion
         denseMapper->ProcessFrame(view, trackingState, scene, renderState_live);
-        //denseMapper->ProcessFrame(view, temp_trackingState, scene, renderState_live);
 
         didFusion = true;
         //pyh we don't really need this
@@ -612,10 +575,8 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
     {
         if (!didFusion){
             denseMapper->UpdateVisibleList(view, trackingState, scene, renderState_live);
-            //denseMapper->UpdateVisibleList(view, temp_trackingState, scene, renderState_live);
         }
         // raycast to renderState_live for tracking and free visualisation
-        //temp_trackingController->Prepare(temp_trackingState, scene, view, visualisationEngine, renderState_live);
         trackingController->Prepare(trackingState, scene, view, visualisationEngine, renderState_live);
 
         if (addKeyframeIdx >= 0)
@@ -651,151 +612,8 @@ fprintf(stderr, "%f %f %f %f %f %f %f\n", t[0], t[1], t[2], q[1], q[2], q[3], q[
     template <typename TVoxel, typename TIndex>
 ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ORUtils::Vector6<float> cur_tangent, ITMIMUMeasurement *imuMeasurement)
 {
-    printf("basic Euler modified engine\n");
-
-    if (imuMeasurement == NULL) viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter);
-    else viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter, imuMeasurement);
-
-    if (!mainProcessingActive) return ITMTrackingState::TRACKING_FAILED;
-
-    // tracking, pyh: probably change here to feed directly
-    ORUtils::SE3Pose oldPose(*(trackingState->pose_d));
-    /*
-       trackingController->Track(trackingState, view);    
-       ORUtils::SE3Pose *next_pose = new ORUtils::SE3Pose(cur_transform);
-       trackingState->pose_d->SetFrom(next_pose);
-       ITMTrackingState::TrackingResult trackerResult = ITMTrackingState::TRACKING_GOOD;
-       */
-
-    if (trackingActive) 
-    {
-        trackingController->Track(trackingState, view);
-        ORUtils::SE3Pose *next_pose = new ORUtils::SE3Pose(cur_tangent);
-
-        std::cout<<"processed transformation matrix : "<<std::endl;
-        std::cout<<trackingState->pose_d->GetM().m[0] <<" "<<trackingState->pose_d->GetM().m[4]<<" "<<trackingState->pose_d->GetM().m[8]<<" "<<trackingState->pose_d->GetM().m[12]<<std::endl;
-        std::cout<<trackingState->pose_d->GetM().m[1] <<" "<<trackingState->pose_d->GetM().m[5]<<" "<<trackingState->pose_d->GetM().m[9]<<" "<<trackingState->pose_d->GetM().m[13]<<std::endl;
-        std::cout<<trackingState->pose_d->GetM().m[2] <<" "<<trackingState->pose_d->GetM().m[6]<<" "<<trackingState->pose_d->GetM().m[10]<<" "<<trackingState->pose_d->GetM().m[14]<<std::endl;
-        std::cout<<trackingState->pose_d->GetM().m[3] <<" "<<trackingState->pose_d->GetM().m[7]<<" "<<trackingState->pose_d->GetM().m[11]<<" "<<trackingState->pose_d->GetM().m[15]<<"\n\n";
-
-        const ORUtils::SE3Pose *p = trackingState->pose_d;
-
-        double R[9];
-        double our_R[9];
-        double q[4];
-        double our_q[4];
-        for (int r = 0; r < 3; ++r) {
-            for (int c = 0; c < 3; ++c){
-                R[r * 3 + c] = p->GetM().m[c * 4 + r];
-                our_R[r * 3 + c] = next_pose->GetM().m[c * 4 + r];
-            }
-        }
-        QuaternionFromRotationMatrix(R, q);
-        QuaternionFromRotationMatrix(our_R, our_q);
-        printf("infinitam quaternion\n  %f %f %f %f\n\n",  q[1], q[2], q[3], q[0]);
-        printf("our quaternion based on infinitam conversion\n %f %f %f %f\n\n", our_q[1], our_q[2], our_q[3], our_q[0]);
-
-        printf("tracker tx: %f, ty: %f, tz: %f\n", p->params.each.tx, p->params.each.ty, p->params.each.tz);
-        printf("our tx: %f, ty: %f, tz: %f\n", next_pose->params.each.tx, next_pose->params.each.ty, next_pose->params.each.tz);
-        printf("tracker rx: %f, ry: %f, rz: %f\n", p->params.each.rx, p->params.each.ry, p->params.each.rz);
-        printf("our rx: %f, ry: %f, rz: %f\n", next_pose->params.each.rx, next_pose->params.each.ry, next_pose->params.each.rz);
-        trackingState->pose_d->SetFrom(next_pose);
-
-    }
-
+    printf("basic Euler modified engine should not be here\n");
     ITMTrackingState::TrackingResult trackerResult = ITMTrackingState::TRACKING_GOOD;
-
-
-    switch (settings->behaviourOnFailure) {
-        case ITMLibSettings::FAILUREMODE_RELOCALISE:
-            trackerResult = trackingState->trackerResult;
-            break;
-        case ITMLibSettings::FAILUREMODE_STOP_INTEGRATION:
-            if (trackingState->trackerResult != ITMTrackingState::TRACKING_FAILED)
-                trackerResult = trackingState->trackerResult;
-            else trackerResult = ITMTrackingState::TRACKING_POOR;
-            break;
-        default:
-            break;
-    }
-
-    //relocalisation
-    int addKeyframeIdx = -1;
-    if (settings->behaviourOnFailure == ITMLibSettings::FAILUREMODE_RELOCALISE)
-    {
-        if (trackerResult == ITMTrackingState::TRACKING_GOOD && relocalisationCount > 0) relocalisationCount--;
-
-        int NN; float distances;
-        view->depth->UpdateHostFromDevice();
-
-        //find and add keyframe, if necessary
-        bool hasAddedKeyframe = relocaliser->ProcessFrame(view->depth, trackingState->pose_d, 0, 1, &NN, &distances, trackerResult == ITMTrackingState::TRACKING_GOOD && relocalisationCount == 0);
-
-        //frame not added and tracking failed -> we need to relocalise
-        if (!hasAddedKeyframe && trackerResult == ITMTrackingState::TRACKING_FAILED)
-        {
-            relocalisationCount = 10;
-
-            // Reset previous rgb frame since the rgb image is likely different than the one acquired when setting the keyframe
-            view->rgb_prev->Clear();
-
-            const FernRelocLib::PoseDatabase::PoseInScene & keyframe = relocaliser->RetrievePose(NN);
-            trackingState->pose_d->SetFrom(&keyframe.pose);
-
-            denseMapper->UpdateVisibleList(view, trackingState, scene, renderState_live, true);
-            trackingController->Prepare(trackingState, scene, view, visualisationEngine, renderState_live); 
-            trackingController->Track(trackingState, view);
-
-            trackerResult = trackingState->trackerResult;
-        }
-    }
-
-
-    bool didFusion = false;
-    if ((trackerResult == ITMTrackingState::TRACKING_GOOD || !trackingInitialised) && (fusionActive) && (relocalisationCount == 0)) {
-        // fusion
-        //denseMapper->ProcessFrame(view, trackingState, scene, renderState_live);
-        didFusion = true;
-        if (framesProcessed > 50) trackingInitialised = true;
-
-        framesProcessed++;
-    }
-
-    if (trackerResult == ITMTrackingState::TRACKING_GOOD || trackerResult == ITMTrackingState::TRACKING_POOR)
-    {
-        if (!didFusion) {
-            denseMapper->UpdateVisibleList(view, trackingState, scene, renderState_live);
-        }
-        // raycast to renderState_live for tracking and free visualisation
-        trackingController->Prepare(trackingState, scene, view, visualisationEngine, renderState_live);
-
-        if (addKeyframeIdx >= 0)
-        {
-            ORUtils::MemoryBlock<Vector4u>::MemoryCopyDirection memoryCopyDirection =
-                settings->deviceType == ITMLibSettings::DEVICE_CUDA ? ORUtils::MemoryBlock<Vector4u>::CUDA_TO_CUDA : ORUtils::MemoryBlock<Vector4u>::CPU_TO_CPU;
-
-            kfRaycast->SetFrom(renderState_live->raycastImage, memoryCopyDirection);
-        }
-    }
-    else 
-    {
-        printf("shouldn't be using old Pose");
-        *trackingState->pose_d = oldPose;
-    }
-
-    /*    
-#ifdef OUTPUT_TRAJECTORY_QUATERNIONS
-const ORUtils::SE3Pose *p = trackingState->pose_d;
-double t[3];
-double R[9];
-double q[4];
-for (int i = 0; i < 3; ++i) t[i] = p->GetInvM().m[3 * 4 + i];
-for (int r = 0; r < 3; ++r) for (int c = 0; c < 3; ++c)
-R[r * 3 + c] = p->GetM().m[c * 4 + r];
-QuaternionFromRotationMatrix(R, q);
-fprintf(stderr, "%f %f %f %f %f %f %f\n", t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
-#endif
-*/    
     return trackerResult;
 }
 

@@ -5,7 +5,7 @@
 #include "../Shared/ITMSceneReconstructionEngine_Shared.h"
 #include "../../../Objects/RenderStates/ITMRenderState_VH.h"
 #include "../../../Utils/ITMCUDAUtils.h"
-
+#include <iostream>
 struct AllocationTempData {
 	int noAllocatedVoxelEntries;
 	int noAllocatedExcessEntries;

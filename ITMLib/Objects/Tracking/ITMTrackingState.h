@@ -37,6 +37,7 @@ namespace ITMLib
 
         //pyh added a separate field for full groundtruth seeding
         ORUtils::SE3Pose *gt_seeding_pose;
+        ORUtils::SE3Pose *gt_prev_pose;
 		/// Tracking quality: 1.0: success, 0.0: failure
 		enum TrackingResult
 		{
@@ -78,7 +79,8 @@ namespace ITMLib
 			pose_pointCloud(new ORUtils::SE3Pose),
 			pose_d(new ORUtils::SE3Pose),
             //pyh seeding change
-            gt_seeding_pose(new ORUtils::SE3Pose)
+            gt_seeding_pose(new ORUtils::SE3Pose),
+            gt_prev_pose(new ORUtils::SE3Pose)
 		{
 			Reset();
 		}
@@ -99,6 +101,7 @@ namespace ITMLib
 			this->trackerScore = 0.0f;
             //pyh seeding change
 			this->gt_seeding_pose->SetFrom(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+			this->gt_prev_pose->SetFrom(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 		}
 
 		// Suppress the default copy constructor and assignment operator

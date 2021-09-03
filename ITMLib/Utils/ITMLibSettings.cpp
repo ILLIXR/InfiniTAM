@@ -8,6 +8,7 @@ using namespace ITMLib;
 
 ITMLibSettings::ITMLibSettings(void)
 :	sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false),
+//:	sceneParams(0.02f, 500, 0.002f, 0.2f, 3.0f, false),
 	surfelSceneParams(0.5f, 0.6f, static_cast<float>(20 * M_PI / 180), 0.01f, 0.004f, 3.5f, 25.0f, 4, 1.0f, 5.0f, 20, 10000000, true, true)
 {
 	// skips every other point when using the colour renderer for creating a point cloud
@@ -36,25 +37,31 @@ ITMLibSettings::ITMLibSettings(void)
 	useApproximateRaycast = false;
 
 	/// enable or disable bilateral depth filtering
-	useBilateralFilter = false;
+	useBilateralFilter = true;
+	//useBilateralFilter = false;
 
 	/// what to do on tracker failure: ignore, relocalise or stop integration - not supported in loop closure version
 	behaviourOnFailure = FAILUREMODE_IGNORE;
 
 	/// switch between various library modes - basic, with loop closure, etc.
-	libMode = LIBMODE_BASIC;
+    //libMode = LIBMODE_BASIC;
+	libMode = LIBMODE_LOOPCLOSURE;
 	//libMode = LIBMODE_BASIC_SURFELS;
 
 	//// Default ICP tracking
 	//trackerConfig = "type=icp,levels=rrrbb,minstep=1e-3,"
-	//				"outlierC=0.01,outlierF=0.002,"
-	//				"numiterC=10,numiterF=2,failureDec=5.0"; // 5 for normal, 20 for loop closure
+	//		"outlierC=0.01,outlierF=0.002,"
+	//		"numiterC=10,numiterF=2,failureDec=5.0"; // 5 for normal, 20 for loop closure
 
 	// Depth-only extended tracker:
+	// pyh: extended tracker
+	
 	trackerConfig = "type=extended,levels=rrbb,useDepth=1,minstep=1e-4,"
 					  "outlierSpaceC=0.1,outlierSpaceF=0.004,"
 					  "numiterC=20,numiterF=50,tukeyCutOff=8,"
+					  //"framesToSkip=0,framesToWeight=0,failureDec=20.0";
 					  "framesToSkip=20,framesToWeight=50,failureDec=20.0";
+   
 
 	//// For hybrid intensity+depth tracking:
 	//trackerConfig = "type=extended,levels=bbb,useDepth=1,useColour=1,"

@@ -432,14 +432,15 @@ namespace ITMLib
 	 */
 	static ITMTracker *MakeFileBasedTracker(const Vector2i& imgSize_rgb, const Vector2i& imgSize_d, ITMLibSettings::DeviceType deviceType, const ORUtils::KeyValueConfig & cfg,
 		const ITMLowLevelEngine *lowLevelEngine, ITMIMUCalibrator *imuCalibrator, const ITMSceneParams *sceneParams)
-	{
+    {
+        std::cout<<"created a file based tracker\n";
 		int verbose = 0;
 		if (cfg.getProperty("help") && verbose < 10) verbose = 10;
 
 		const char *fileMask = "";
 		int initialFrameNo = 0;
-		cfg.parseStrProperty("mask", "mask for the saved pose text files", fileMask, verbose);
-		cfg.parseIntProperty("initialFrameNo", "initial frame index to use for tracking", initialFrameNo, verbose);
+	//    cfg.parseStrProperty("mask", "mask for the saved pose text files", fileMask, verbose);
+	//	cfg.parseIntProperty("initialFrameNo", "initial frame index to use for tracking", initialFrameNo, verbose);
 
 		return new ITMFileBasedTracker(fileMask, initialFrameNo);
 	}

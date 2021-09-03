@@ -76,7 +76,6 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::IntegrateIntoS
 
 	bool stopIntegratingAtMaxW = scene->sceneParams->stopIntegratingAtMaxW;
 	//bool approximateIntegration = !trackingState->requiresFullRendering;
-
 #ifdef WITH_OPENMP
 	#pragma omp parallel for
 #endif
@@ -93,7 +92,8 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::IntegrateIntoS
 		globalPos *= SDF_BLOCK_SIZE;
 
 		TVoxel *localVoxelBlock = &(localVBA[currentHashEntry.ptr * (SDF_BLOCK_SIZE3)]);
-
+        //std::cout<<"reached here\n";
+        //pyh CPU version will run into trouble here wierd...
 		for (int z = 0; z < SDF_BLOCK_SIZE; z++) for (int y = 0; y < SDF_BLOCK_SIZE; y++) for (int x = 0; x < SDF_BLOCK_SIZE; x++)
 		{
 			Vector4f pt_model; int locId;

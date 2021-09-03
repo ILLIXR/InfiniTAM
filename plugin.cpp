@@ -22,12 +22,12 @@ class infinitam : public plugin {
             //pyh still hardcode to read the calib file
             char cur_path[256];
             getcwd(cur_path,256);
-            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
-            std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_vcu.txt";
+            std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
+
+            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_vcu.txt";
+            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_vcu.txt";
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr1.txt";
-            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3.txt";
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3_website.txt";
-            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3_switch.txt";
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3_website_wrong_switch.txt";
 
             //read from calib.txt and convert to ITMRGBDCalib format
@@ -57,13 +57,13 @@ class infinitam : public plugin {
                     });
             is_first_pose=true;
             //adjusted_file.open("85_fr3_cabinet_calibfr3_voxel10_gt_input.csv");
-            //printf("================================InfiniTAM: setup finished==========================\n");
-            output_mesh_name="88_labsimple1_calibvcu_gt_no_seeding_timing.stl";
+            printf("================================InfiniTAM: setup finished==========================\n");
+            output_mesh_name="827_teddy_CPU_MaxF_newstat_ns_2.stl";
         }
 
         void ProcessFrame(switchboard::ptr<const rgb_depth_pose_type> datum)
         {
-           // printf("================================InfiniTAM: frame %d received==========================\n", frame_count);
+            printf("================================InfiniTAM: frame %d received==========================\n", frame_count);
             //if(datum->depth.has_value() && datum->rgb.has_value())
             if(datum->depth.has_value())
             {
@@ -79,7 +79,7 @@ class infinitam : public plugin {
                 ORUtils::Matrix4<float> cur_trans;
                 ORUtils::Matrix4<float> test_trans;
 
-                //uncomment this if you want to use TUM_RBGD Dataset
+                //uncomment this if you want to position relative to first frame(no usecase yet)
                 //if(is_first_pose)//save the inverse of first pose and position
                 //{
                 //    orientation_offset = cur_ori.inverse();
@@ -87,88 +87,67 @@ class infinitam : public plugin {
                 //}
                 //
                 ////step need to feed in groundtruth
-                //Eigen::Quaternionf adjusted_orientation = orientation_offset * cur_ori;
+                //Eigen::Quaternionf adjusted_orientation = cur_ori* orientation_offset ;
+                ////Eigen::Quaternionf adjusted_orientation = orientation_offset * cur_ori;
                 //Eigen::Vector3f adjusted_pos = cur_pos - first_pos;
                 ////Eigen::Quaternionf view_rot = adjusted_orientation.inverse().normalized();
                 ////Eigen::Matrix3f adjusted_rot = adjusted_orientation.inverse().normalized().toRotationMatrix();
                 //Eigen::Quaternionf view_rot = adjusted_orientation.normalized();
                 //Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
-                
-                //uncomment this if you want to use ICP tracker pose
-        
-                //Eigen::Quaternionf adjusted_orientation = cur_ori * orientation_offset;
-                //Eigen::Quaternionf adjusted_orientation = orientation_offset * cur_ori;
 
-                //for VCU handtype transformation matix for now
-                Eigen::Matrix4f align_trans;
-
+                //uncomment this if you want to use ICP tracker pose or directly feeding groundtruth pose
                 Eigen::Quaternionf adjusted_orientation = cur_ori;
-                //Eigen::Vector3f adjusted_pos = cur_pos - first_pos;
                 Eigen::Vector3f adjusted_pos = cur_pos;
                 Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
-                //Eigen::Matrix3f adjusted_rot = adjusted_orientation.toRotationMatrix();
+
+                //818 VCU coord system
+                //Eigen::Vector3f adjusted_pos;
+                //adjusted_pos(0) = - cur_pos(1); //-ty
+                //adjusted_pos(1) = - cur_pos(0); //-tx
+                //adjusted_pos(2) = - cur_pos(2); //-tz
+                //Eigen::Quaternionf adjusted_orientation;
+                //adjusted_orientation.y() = cur_ori.x();
+                //adjusted_orientation.x() = cur_ori.y();
+                //adjusted_orientation.z() = -cur_ori.z();
+                //adjusted_orientation.w() = -cur_ori.w();
+                //Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
                 
-                //if this is the first pose we initialise the first pose
+                //step 3 put them in a transformation matrix 
+                cur_trans.m[0] = adjusted_rot(0,0); cur_trans.m[1] = adjusted_rot(1,0); cur_trans.m[2] = adjusted_rot(2,0);
+                cur_trans.m[3] = 0.0f;
+
+                cur_trans.m[4] = adjusted_rot(0,1); cur_trans.m[5] = adjusted_rot(1,1); cur_trans.m[6] = adjusted_rot(2,1);
+                cur_trans.m[7] = 0.0f;
+
+                cur_trans.m[8] = adjusted_rot(0,2); cur_trans.m[9] = adjusted_rot(1,2); cur_trans.m[10] = adjusted_rot(2,2);
+                cur_trans.m[11] = 0.0f;
+
+                cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
+                cur_trans.m[15] = 1.0f;
+                ////if this is the first seeding or full seeding mode,  we initialise the first pose
                 //if(is_first_pose)
                 //{
                 //    std::cout<<"setting first pose \n";
-                //    cur_trans.m[0] = adjusted_rot(0,0); cur_trans.m[1] = adjusted_rot(1,0); cur_trans.m[2] = adjusted_rot(2,0);
-                //    cur_trans.m[3] = 0.0f;
-
-                //    cur_trans.m[4] = adjusted_rot(0,1); cur_trans.m[5] = adjusted_rot(1,1); cur_trans.m[6] = adjusted_rot(2,1);
-                //    cur_trans.m[7] = 0.0f;
-
-                //    cur_trans.m[8] = adjusted_rot(0,2); cur_trans.m[9] = adjusted_rot(1,2); cur_trans.m[10] = adjusted_rot(2,2);
-                //    cur_trans.m[11] = 0.0f;
-
-                //    cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
-                //    cur_trans.m[15] = 1.0f;
-
                 //    mainEngine->SetInitialPose(cur_trans);
                 //    is_first_pose=false;
-
                 //}
-                //else
-                {
-                    //step 3 put them in a transformation matrix 
-                    cur_trans.m[0] = adjusted_rot(0,0); cur_trans.m[1] = adjusted_rot(1,0); cur_trans.m[2] = adjusted_rot(2,0);
-                    cur_trans.m[3] = 0.0f;
-
-                    cur_trans.m[4] = adjusted_rot(0,1); cur_trans.m[5] = adjusted_rot(1,1); cur_trans.m[6] = adjusted_rot(2,1);
-                    cur_trans.m[7] = 0.0f;
-
-                    cur_trans.m[8] = adjusted_rot(0,2); cur_trans.m[9] = adjusted_rot(1,2); cur_trans.m[10] = adjusted_rot(2,2);
-                    cur_trans.m[11] = 0.0f;
-
-                    cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
-                    cur_trans.m[15] = 1.0f;
-
-                    //we are feeding the inverse instead
-                    //cur_trans.inv(test_trans);
-                    test_trans = cur_trans;
-                    std::vector<float> single_trans;
-                    single_trans.push_back(test_trans.m[12]);
-                    single_trans.push_back(test_trans.m[13]);
-                    single_trans.push_back(test_trans.m[14]);
-
-                    Eigen::Matrix3f testr;
-                    testr(0,0) = test_trans.m[0];
-                    testr(1,0) = test_trans.m[1];
-                    testr(2,0) = test_trans.m[2];
-                    testr(0,1) = test_trans.m[4];
-                    testr(1,1) = test_trans.m[5];
-                    testr(2,1) = test_trans.m[6];
-                    testr(0,2) = test_trans.m[8];
-                    testr(1,2) = test_trans.m[9];
-                    testr(2,2) = test_trans.m[10];
-                    Eigen::Quaternionf testq(testr);
-                    single_trans.push_back(testq.x());
-                    single_trans.push_back(testq.y());
-                    single_trans.push_back(testq.z());
-                    single_trans.push_back(testq.w());
-                    gt_array.push_back(single_trans);
-                }
-
+                //used for only full seeding change
+                //mainEngine->SetSeedingPose(cur_trans);
+                
+                //dump input transformation matrix info
+                //cur_trans.inv(test_trans);
+                //test_trans = cur_trans;
+                //std::vector<float> single_trans;
+                //single_trans.push_back(test_trans.m[12]); single_trans.push_back(test_trans.m[13]); single_trans.push_back(test_trans.m[14]);
+                //Eigen::Matrix3f testr;
+                //testr(0,0) = test_trans.m[0]; testr(0,1) = test_trans.m[4]; testr(0,2) = test_trans.m[8];
+                //testr(1,0) = test_trans.m[1]; testr(1,1) = test_trans.m[5]; testr(1,2) = test_trans.m[9];
+                //testr(2,0) = test_trans.m[2]; testr(2,1) = test_trans.m[6]; testr(2,2) = test_trans.m[10];
+                //Eigen::Quaternionf testq(testr);
+                //single_trans.push_back(testq.x()); single_trans.push_back(testq.y()); single_trans.push_back(testq.z()); single_trans.push_back(testq.w());
+                //gt_array.push_back(single_trans);
+                //end dumping
+    
                 //const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                 const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
 
@@ -177,14 +156,12 @@ class infinitam : public plugin {
 
                 //std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
                 std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
-                //used for only full seeding change
-                //mainEngine->SetSeedingPose(cur_trans);
-                //mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
-                mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, cur_trans);
-
-#ifndef COMPILE_WITHOUT_CUDA
-                ORcudaSafeCall(cudaThreadSynchronize());
-#endif
+                //ICP mode
+                mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+                //ground truth mode
+                //mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, cur_trans);
+                //for GPU version only
+                //ORcudaSafeCall(cudaThreadSynchronize());
             }
             else{   printf("missing either rgb or depth or both\n");}
         }
