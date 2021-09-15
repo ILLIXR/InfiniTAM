@@ -41,6 +41,7 @@ class infinitam : public plugin {
             //pyh testing
             std::cout<<"rgb calibration: "<< calib->intrinsics_rgb.projectionParamsSimple.all<<"\n";
             std::cout<<"depth calibration: "<< calib->intrinsics_d.projectionParamsSimple.all<<"\n";
+            std::cout<<"BilaterFilter: "<<internalSettings->useBilateralFilter<<"\n";
             mainEngine = new ITMLib::ITMBasicEngine<ITMVoxel, ITMVoxelIndex>(
                     internalSettings,
                     *calib,
@@ -58,7 +59,7 @@ class infinitam : public plugin {
             is_first_pose=true;
             //adjusted_file.open("85_fr3_cabinet_calibfr3_voxel10_gt_input.csv");
             printf("================================InfiniTAM: setup finished==========================\n");
-            output_mesh_name="827_teddy_CPU_MaxF_newstat_ns_2.stl";
+            output_mesh_name="914_room_CPU_debug.stl";
         }
 
         void ProcessFrame(switchboard::ptr<const rgb_depth_pose_type> datum)
@@ -124,7 +125,7 @@ class infinitam : public plugin {
 
                 cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
                 cur_trans.m[15] = 1.0f;
-                ////if this is the first seeding or full seeding mode,  we initialise the first pose
+                //if this is the first seeding or full seeding mode,  we initialise the first pose
                 //if(is_first_pose)
                 //{
                 //    std::cout<<"setting first pose \n";
@@ -157,7 +158,14 @@ class infinitam : public plugin {
                 //std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
                 std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
                 //ICP mode
-                mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+                ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+                if(tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
+                {
+                    printf("tracking failed at frame %d\n", frame_count);
+                    std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
+                    mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
+                    std::exit(0);
+                }
                 //ground truth mode
                 //mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, cur_trans);
                 //for GPU version only

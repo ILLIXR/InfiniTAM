@@ -4,6 +4,7 @@
 
 #include "../../../Objects/Scene/ITMRepresentationAccess.h"
 #include "../../../Utils/ITMPixelUtils.h"
+#include <math.h>
 
 template<class TVoxel>
 _CPU_AND_GPU_CODE_ inline float computeUpdatedVoxelDepthInfo(DEVICEPTR(TVoxel) &voxel, const THREADPTR(Vector4f) & pt_model, const CONSTPTR(Matrix4f) & M_d,
@@ -15,13 +16,38 @@ _CPU_AND_GPU_CODE_ inline float computeUpdatedVoxelDepthInfo(DEVICEPTR(TVoxel) &
 
 	// project point into image
 	pt_camera = M_d * pt_model;
-	if (pt_camera.z <= 0) return -1;
+	if (pt_camera.z <= 0) {
+        return -1;
+    }
+    //pyh currently if tracking fails in CPU, it will segfault since pt_camera will not work with nan in M_d so the solution is to detect 
+    //tracking failue by checking M_d's rotation for any nan's, if found return -1
+   // bool tracking_failed=false;
+   // for(int i=0; i<15; i++)
+   // {
+   //     if(i == 3 || i == 7 || i == 11 || i == 15)
+   //     {
+   //         continue;
+   //     }
+   //     else
+   //     {
+   //         if(isnan(M_d.m[i]))
+   //         {
+   //             std::cout<<"tracking failed, stop integrating scene\n";
+   //             tracking_failed=true;
+   //             break;
+   //         }
+   //     }
+   // }
+   // if(tracking_failed)
+   // {
+   //     return -1;
+   // }
 
 	pt_image.x = projParams_d.x * pt_camera.x / pt_camera.z + projParams_d.z;
 	pt_image.y = projParams_d.y * pt_camera.y / pt_camera.z + projParams_d.w;
 	if ((pt_image.x < 1) || (pt_image.x > imgSize.x - 2) || (pt_image.y < 1) || (pt_image.y > imgSize.y - 2)) return -1;
 
-	// get measured depth from image
+    // get measured depth from image
 	depth_measure = depth[(int)(pt_image.x + 0.5f) + (int)(pt_image.y + 0.5f) * imgSize.x];
 	if (depth_measure <= 0.0f) return -1;
 

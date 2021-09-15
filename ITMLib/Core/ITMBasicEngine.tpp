@@ -160,7 +160,7 @@ ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 {
     //pyh: need to close pose & param file
-    pose_file.open("827_teddy_CPU_MaxF_newstat_ns_2.csv");
+    pose_file.open("93_room_CPU_debug_ICP.csv");
     for(auto i=0; i<pose_array.size(); i++)
     {
         for(auto j=0; j<(pose_array[i].size()-1); j++)
@@ -359,6 +359,28 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
     testr(0,2) = trackingState->pose_d->GetInvM().m[8];
     testr(1,2) = trackingState->pose_d->GetInvM().m[9];
     testr(2,2) = trackingState->pose_d->GetInvM().m[10];
+    //std::cout<<testr(0,0)<<" "<<testr(0,1)<<" "<<testr(0,2)<<" "<<trackingState->pose_d->GetInvM().m[12]<<"\n";
+    //std::cout<<testr(1,0)<<" "<<testr(1,1)<<" "<<testr(1,2)<<" "<<trackingState->pose_d->GetInvM().m[13]<<"\n";
+    //std::cout<<testr(2,0)<<" "<<testr(2,1)<<" "<<testr(2,2)<<" "<<trackingState->pose_d->GetInvM().m[14]<<"\n";
+    bool tracking_failed=false;
+    for(int i=0; i<15; i++)
+    {
+        if(i==3 || i==7 || i ==11 || i==15) continue;
+        else
+        {
+            if(isnan(trackingState->pose_d->GetInvM().m[i]))
+            {
+                //std::cout<<"tracking failure\n";
+                tracking_failed=true;
+                break;
+            }
+        }
+    }
+    if(tracking_failed)
+    {
+        return ITMTrackingState::TRACKING_FAILED;
+    }
+    //std::cout<<"=================================================\n";
 
     Eigen::Quaternionf testq(testr);
     single_pose.push_back(testq.normalized().x());
