@@ -181,12 +181,27 @@ _CPU_AND_GPU_CODE_ inline bool computePerPointGH_exRGB_inv_Ab(
 
 	// Transform the point in world coordinates
 	const Vector3f pt_world = approxInvPose * pt_curr.toVector3();
+    //for(int i=0; i<15; i++)
+    //{
+    //    if(isnan(approxInvPose.m[i]))
+    //    {
+    //        std::cout<<"approxInvpose is nan\n";
+    //        break;
+    //    }
+    //}
 
 	// Transform the point in previous camera coordinates
 	const Vector3f pt_prev = scenePose * pt_world;
 
 	if (pt_prev.z <= 0.0f) return false; // Point behind the camera
-
+    //if(isnan(pt_world.x) || isnan(pt_world.y) || isnan(pt_world.z))
+    //{
+    //    std::cout<<"pt_world is nan\n";
+    //}
+    //if (isnan(pt_prev.x) || isnan(pt_prev.y))
+    //{
+    //    std::cout<<"prev.x or y isnan\n";
+    //}
 	// Project the point in the previous intensity frame
 	const Vector2f pt_prev_proj = project(pt_prev, intrinsics_rgb);
 

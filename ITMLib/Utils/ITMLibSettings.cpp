@@ -57,7 +57,9 @@ ITMLibSettings::ITMLibSettings(void)
 	// Depth-only extended tracker:
 	// pyh: extended tracker
 	
-	trackerConfig = "type=extended,levels=rrbb,useDepth=1,minstep=1e-4,"
+    //pyh: enabled colour
+	trackerConfig = "type=extended,levels=rrbb,useDepth=1,useColour=1, minstep=1e-4,"
+	//trackerConfig = "type=extended,levels=rrbb,useDepth=1, minstep=1e-4,"
 					  "outlierSpaceC=0.1,outlierSpaceF=0.004,"
 					  "numiterC=20,numiterF=50,tukeyCutOff=8,"
 					  //"framesToSkip=0,framesToWeight=0,failureDec=20.0";

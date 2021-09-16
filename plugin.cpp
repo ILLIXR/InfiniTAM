@@ -65,12 +65,13 @@ class infinitam : public plugin {
         void ProcessFrame(switchboard::ptr<const rgb_depth_pose_type> datum)
         {
             printf("================================InfiniTAM: frame %d received==========================\n", frame_count);
-            //if(datum->depth.has_value() && datum->rgb.has_value())
-            if(datum->depth.has_value())
+            if(datum->depth.has_value() && datum->rgb.has_value())
+            //if(datum->depth.has_value())
             {
                 frame_count++;
                 cv::Mat cur_depth = datum->depth.value();
-                //cv::Mat cur_rgb = datum->rgb.value();
+                //enable color 
+                cv::Mat cur_rgb = datum->rgb.value();
 
                 //test tx ty tz 
                 //step 1 input quaternion and position vector are retrieved
@@ -149,16 +150,17 @@ class infinitam : public plugin {
                 //gt_array.push_back(single_trans);
                 //end dumping
     
-                //const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
+                const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                 const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
 
                 short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
-                //Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
+                Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
 
-                //std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
+                std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
                 std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
                 //ICP mode
                 ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+                
                 if(tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
                 {
                     printf("tracking failed at frame %d\n", frame_count);

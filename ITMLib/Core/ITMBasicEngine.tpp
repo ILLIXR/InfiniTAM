@@ -362,6 +362,9 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
     //std::cout<<testr(0,0)<<" "<<testr(0,1)<<" "<<testr(0,2)<<" "<<trackingState->pose_d->GetInvM().m[12]<<"\n";
     //std::cout<<testr(1,0)<<" "<<testr(1,1)<<" "<<testr(1,2)<<" "<<trackingState->pose_d->GetInvM().m[13]<<"\n";
     //std::cout<<testr(2,0)<<" "<<testr(2,1)<<" "<<testr(2,2)<<" "<<trackingState->pose_d->GetInvM().m[14]<<"\n";
+    //std::cout<<trackingState->pose_pointCloud->GetM().m[0]<<" "<<trackingState->pose_pointCloud->GetM().m[4]<<" "<<trackingState->pose_pointCloud->GetM().m[8]<<" "<<trackingState->pose_d->GetInvM().m[12]<<"\n";
+    //std::cout<<trackingState->pose_pointCloud->GetM().m[1]<<" "<<trackingState->pose_pointCloud->GetM().m[5]<<" "<<trackingState->pose_pointCloud->GetM().m[9]<<" "<<trackingState->pose_d->GetInvM().m[13]<<"\n";
+    //std::cout<<trackingState->pose_pointCloud->GetM().m[2]<<" "<<trackingState->pose_pointCloud->GetM().m[6]<<" "<<trackingState->pose_pointCloud->GetM().m[10]<<" "<<trackingState->pose_d->GetInvM().m[14]<<"\n";
     bool tracking_failed=false;
     for(int i=0; i<15; i++)
     {
@@ -370,7 +373,6 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
         {
             if(isnan(trackingState->pose_d->GetInvM().m[i]))
             {
-                //std::cout<<"tracking failure\n";
                 tracking_failed=true;
                 break;
             }

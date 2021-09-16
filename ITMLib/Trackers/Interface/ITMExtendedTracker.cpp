@@ -158,7 +158,7 @@ void ITMExtendedTracker::PrintFrameICPIter()
     if(!iter_map.empty() && !ICP_time_map.empty())
     {
     
-        frame_ICP_file.open("827_teddy_CPU_MaxF_newstat_ns_frame_info_2.csv");
+        frame_ICP_file.open("93_room_CPU_MaxF_blon_frame_info_0.csv");
     //for(auto i=0; i<iter_map.size(); i++)
     //{
     //    frame_ICP_file<<i<<" "<<iter_map[i]<<" "<<std::chrono::duration_cast<std::chrono::nanoseconds>(ICP_time_map[i]).count()<<"\n";
@@ -476,7 +476,7 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
     if (!trackingState->HasValidPointCloud()) {
         return;
     }
-
+   // if(useColour) { std::cout<<"use colur\n";} 
     if (trackingState->age_pointCloud >= 0) trackingState->framesProcessed++;
     else trackingState->framesProcessed = 0;
 
@@ -636,74 +636,74 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
                 }
             }
 
-            //    if (useColour)
-            //    {
-            //        noValidPoints_RGB = ComputeGandH_RGB(f_RGB, nabla_RGB, hessian_RGB, approxInvPose);
+            if (useColour)
+            {
+                noValidPoints_RGB = ComputeGandH_RGB(f_RGB, nabla_RGB, hessian_RGB, approxInvPose);
 
-            //        if (noValidPoints_RGB > MIN_VALID_POINTS_DEPTH)
-            //        {
-            //            // Normalize nabla and hessian
-            //            for (int i = 0; i < 6 * 6; ++i) hessian_RGB[i] /= noValidPoints_RGB;
-            //            for (int i = 0; i < 6; ++i) nabla_RGB[i] /= noValidPoints_RGB;
-            //            f_RGB /= noValidPoints_RGB;
-            //        }
-            //        else
-            //        {
-            //            f_RGB = std::numeric_limits<float>::max();
-            //        }
-            //    }
+                if (noValidPoints_RGB > MIN_VALID_POINTS_DEPTH)
+                {
+                    // Normalize nabla and hessian
+                    for (int i = 0; i < 6 * 6; ++i) hessian_RGB[i] /= noValidPoints_RGB;
+                    for (int i = 0; i < 6; ++i) nabla_RGB[i] /= noValidPoints_RGB;
+                    f_RGB /= noValidPoints_RGB;
+                }
+                else
+                {
+                    f_RGB = std::numeric_limits<float>::max();
+                }
+            }
 
             float hessian_new[6 * 6];
             float nabla_new[6];
             float f_new = 0.f;
             int noValidPoints_new = 0;
 
-            //if (useDepth && useColour)
-            //{
-            //    //std::cout<<"triggered here\n";
-            //    // Combine depth and intensity measurements
-            //    if (noValidPoints_depth > MIN_VALID_POINTS_DEPTH)
-            //    {
-            //        noValidPoints_new = noValidPoints_depth;
-            //        f_new = f_depth;
-            //        memcpy(nabla_new, nabla_depth, sizeof(nabla_depth));
-            //        memcpy(hessian_new, hessian_depth, sizeof(hessian_depth));
-            //    }
-            //    else
-            //    {
-            //        // Not enough valid depth correspondences, rely only on colour.
-            //        noValidPoints_new = 0;
-            //        f_new = 0.f;
-            //        memset(nabla_new, 0, sizeof(nabla_new));
-            //        memset(hessian_new, 0, sizeof(hessian_new));
-            //    }
+            if (useDepth && useColour)
+            {
+                //std::cout<<"triggered here\n";
+                // Combine depth and intensity measurements
+                if (noValidPoints_depth > MIN_VALID_POINTS_DEPTH)
+                {
+                    noValidPoints_new = noValidPoints_depth;
+                    f_new = f_depth;
+                    memcpy(nabla_new, nabla_depth, sizeof(nabla_depth));
+                    memcpy(hessian_new, hessian_depth, sizeof(hessian_depth));
+                }
+                else
+                {
+                    // Not enough valid depth correspondences, rely only on colour.
+                    noValidPoints_new = 0;
+                    f_new = 0.f;
+                    memset(nabla_new, 0, sizeof(nabla_new));
+                    memset(hessian_new, 0, sizeof(hessian_new));
+                }
 
-            //    if (noValidPoints_RGB > MIN_VALID_POINTS_RGB)
-            //    {
-            //        noValidPoints_new += noValidPoints_RGB;
-            //        f_new += f_RGB;
-            //        for (int i = 0; i < 6; ++i) nabla_new[i] += colourWeight * nabla_RGB[i];
-            //        for (int i = 0; i < 6 * 6; ++i) hessian_new[i] += colourWeight * colourWeight * hessian_RGB[i];
-            //    }
-            //}
-            //else if (useDepth)
+                if (noValidPoints_RGB > MIN_VALID_POINTS_RGB)
+                {
+                    noValidPoints_new += noValidPoints_RGB;
+                    f_new += f_RGB;
+                    for (int i = 0; i < 6; ++i) nabla_new[i] += colourWeight * nabla_RGB[i];
+                    for (int i = 0; i < 6 * 6; ++i) hessian_new[i] += colourWeight * colourWeight * hessian_RGB[i];
+                }
+            }
+            else if (useDepth)
             {
                 noValidPoints_new = noValidPoints_depth;
                 f_new = f_depth;
                 memcpy(nabla_new, nabla_depth, sizeof(nabla_depth));
                 memcpy(hessian_new, hessian_depth, sizeof(hessian_depth));
             }
-            //else if (useColour)
-            //{
-            //    noValidPoints_new = noValidPoints_RGB;
-            //    f_new = f_RGB;
-            //    memcpy(nabla_new, nabla_RGB, sizeof(nabla_RGB));
-            //    memcpy(hessian_new, hessian_RGB, sizeof(hessian_RGB));
-            //}
-            //else
-            //{
-            //    throw std::runtime_error("Cannot track the camera when both useDepth and useColour are false.");
-            //}
+            else if (useColour)
+            {
+                noValidPoints_new = noValidPoints_RGB;
+                f_new = f_RGB;
+                memcpy(nabla_new, nabla_RGB, sizeof(nabla_RGB));
+                memcpy(hessian_new, hessian_RGB, sizeof(hessian_RGB));
+            }
+            else
+            {
+                throw std::runtime_error("Cannot track the camera when both useDepth and useColour are false.");
+            }
 
             //    // check if error increased. If so, revert
             if ((noValidPoints_new <= 0) || (f_new >= f_old))
@@ -762,7 +762,10 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
             trackingState->pose_d->Coerce();
             approxInvPose = trackingState->pose_d->GetInvM();
             // if step is small, assume it's going to decrease the error and finish
-            if (HasConverged(step)) break;
+            if (HasConverged(step)) 
+            {
+                break;
+            }
         }
         total_iter += iterNo + 1;
         //single_iter += iterNo + 1;
@@ -770,6 +773,18 @@ void ITMExtendedTracker::TrackCamera(ITMTrackingState *trackingState, const ITMV
         auto ICP_pyramid_end = std::chrono::high_resolution_clock::now();
         single_pyramid_time.push_back(ICP_pyramid_end - ICP_pyramid_begin);
         single_pyramid_iter.push_back(iterNo+1);
+        //pyh if not converged
+        bool tracking_failed=false;
+        for(int i=0; i<15; i++)
+        {
+            if(isnan(approxInvPose.m[i]))
+            {
+                printf("ICP tracking failed at pyramid level %d\n",levelId);
+                tracking_failed=true;
+                break;
+            }
+        }
+        if(tracking_failed) break;
     }
     //pyh per frame mesurement
     //auto ICP_loop_end = std::chrono::high_resolution_clock::now();

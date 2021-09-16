@@ -176,7 +176,18 @@ int ITMExtendedTracker_CPU::ComputeGandH_RGB(float &f, float *nabla, float *hess
 	noValidPoints = 0; sumF = 0.0f;
 	memset(sumHessian, 0, sizeof(float) * noParaSQ);
 	memset(sumNabla, 0, sizeof(float) * noPara);
-
+    //std::cout<<"intensities_prev: "<<intensities_prev<<"\n";
+    //for(int i=0; i<15; i++)
+    //{
+    //    if(isnan(depthToRGBTransform.m[i]))
+    //    {
+    //        std::cout<<"depth to rgb transform nan\n";
+    //    }
+    //    if(isnan(scenePose.m[i]))
+    //    {
+    //        std::cout<<"scene pose nan\n";
+    //    }
+    //}
 	for (int y = 0; y < viewImageSize_depth.y; y++) for (int x = 0; x < viewImageSize_depth.x; x++)
 	{
 		float localHessian[6 + 5 + 4 + 3 + 2 + 1], localNabla[6], localF = 0;
