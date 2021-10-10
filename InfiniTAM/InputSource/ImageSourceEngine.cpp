@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <stdio.h>
 
+#include <iostream>
+
 using namespace InputSource;
 using namespace ITMLib;
 
@@ -52,7 +54,8 @@ ImageListPathGenerator::ImageListPathGenerator(const std::vector<std::string>& r
 	: depthImagePaths(depthImagePaths_),
 	  rgbImagePaths(rgbImagePaths_)
 {
-	if(rgbImagePaths.size() != depthImagePaths.size()) DIEWITHEXCEPTION("error: the rgb and depth image path lists do not have the same size");
+	// bytian: commented out due to dataset inconsistency
+	// if(rgbImagePaths.size() != depthImagePaths.size()) DIEWITHEXCEPTION("error: the rgb and depth image path lists do not have the same size");
 }
 
 std::string ImageListPathGenerator::getRgbImagePath(size_t currentFrameNo) const
@@ -67,7 +70,9 @@ std::string ImageListPathGenerator::getDepthImagePath(size_t currentFrameNo) con
 
 size_t ImageListPathGenerator::imageCount() const
 {
-	return rgbImagePaths.size();
+	// bytian: changed due to unmatched dataset sizes
+	// return rgbImagePaths.size();
+	return depthImagePaths.size();
 }
 
 template <typename PathGenerator>
@@ -93,12 +98,14 @@ ImageFileReader<PathGenerator>::~ImageFileReader()
 template <typename PathGenerator>
 void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 {
+	printf("Loading images ... \n");
 	if (currentFrameNo == cachedFrameNo) return;
 	cachedFrameNo = currentFrameNo;
 
 	cacheIsValid = true;
 
 	std::string rgbPath = pathGenerator.getRgbImagePath(currentFrameNo);
+	std::cout << "Path to color image: " << rgbPath << std::endl;
 	if (!ReadImageFromFile(cached_rgb, rgbPath.c_str()))
 	{
 		if (cached_rgb->noDims.x > 0) cacheIsValid = false;
@@ -106,13 +113,25 @@ void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 	}
 
 	std::string depthPath = pathGenerator.getDepthImagePath(currentFrameNo);
+	std::cout << "Path to depth image: " << depthPath << std::endl;
+
 	if (!ReadImageFromFile(cached_depth, depthPath.c_str()))
 	{
 		if (cached_depth->noDims.x > 0) cacheIsValid = false;
 		printf("error reading file '%s'\n", depthPath.c_str());
 	}
 
+	// bytian: changed due to dataset unmatched frames
 	if ((cached_rgb->noDims.x <= 0) && (cached_depth->noDims.x <= 0)) cacheIsValid = false;
+
+	if (depthPath != "")
+	{
+		size_t pos = 0;
+		std::string delim = "depth/";
+		pos = depthPath.find(delim);
+		currentTimeStamp = depthPath.substr(pos + delim.length(), 17);
+		std::cout << "Current timestamp: " << currentTimeStamp << std::endl;
+	}
 }
 
 template <typename PathGenerator>

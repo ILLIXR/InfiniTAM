@@ -15,10 +15,27 @@ using namespace InfiniTAM::Engine;
 using namespace InputSource;
 using namespace ITMLib;
 
+std::vector<std::string> list2vec(std::string filename)
+{
+        std::ifstream file;
+        file.open(filename);
+        std::string line;
+        std::vector<std::string> output;
+
+        while(file.good() && (getline(file, line)))
+        {
+                std::cout << "line: " << line << std::endl;
+                output.push_back(line);
+        }
+        return output;
+}
+
+
 int main(int argc, char** argv)
 try
 {
 	const char *calibFile = "";
+	const char *groundtruth = NULL;
 	const char *imagesource_part1 = NULL;
 	const char *imagesource_part2 = NULL;
 	const char *imagesource_part3 = NULL;
@@ -26,6 +43,8 @@ try
 	int arg = 1;
 	do {
 		if (argv[arg] != NULL) calibFile = argv[arg]; else break;
+		++arg;
+		if (argv[arg] != NULL) groundtruth = argv[arg]; else break;
 		++arg;
 		if (argv[arg] != NULL) imagesource_part1 = argv[arg]; else break;
 		++arg;
@@ -66,8 +85,27 @@ try
 		if (imagesource_part3 == NULL)
 		{
 			printf("using rgb images: %s\nusing depth images: %s\n", imagesource_part1, imagesource_part2);
-			ImageMaskPathGenerator pathGenerator(imagesource_part1, imagesource_part2);
-			imageSource = new ImageFileReader<ImageMaskPathGenerator>(calibFile, pathGenerator);
+
+			bool useMask = false;
+
+			if (useMask)
+			{
+				std::cout << "Using ImageMaskPathGenerator! " << std::endl;
+				ImageMaskPathGenerator pathGenerator(imagesource_part1, imagesource_part2);
+				imageSource = new ImageFileReader<ImageMaskPathGenerator>(calibFile, pathGenerator);
+			}
+			else
+			{
+				std::cout << "Using ImageListPathGenerator! " << std::endl;
+
+				std::vector<std::string> color_list = list2vec(imagesource_part1);
+				std::vector<std::string> depth_list = list2vec(imagesource_part2);
+
+				std::cout << "Loaded list size:" << color_list.size() << " " << depth_list.size() << std::endl;
+				ImageListPathGenerator pathGenerator(color_list, depth_list);
+				imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
+			}
+
 		}
 		else
 		{
@@ -78,7 +116,7 @@ try
 	}
 
 	ITMMainEngine *mainEngine = new ITMBasicEngine<ITMVoxel,ITMVoxelIndex>(
-		internalSettings, imageSource->getCalib(), imageSource->getRGBImageSize(), imageSource->getDepthImageSize()
+		internalSettings, imageSource->getCalib(), imageSource->getRGBImageSize(), imageSource->getDepthImageSize(), groundtruth
 	);
 
 	CLIEngine::Instance()->Initialise(imageSource, imuSource, mainEngine, internalSettings->deviceType);

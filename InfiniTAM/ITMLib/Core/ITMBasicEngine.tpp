@@ -12,12 +12,19 @@
 #include "../../ORUtils/NVTimer.h"
 #include "../../ORUtils/FileUtils.h"
 
+#include <Eigen/Dense>
+#include <fstream>
+#include <sstream>
+
 //#define OUTPUT_TRAJECTORY_QUATERNIONS
+
+// #define ICP
+#define TUM
 
 using namespace ITMLib;
 
 template <typename TVoxel, typename TIndex>
-ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d)
+ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d, const char* pose_path)
 {
 	this->settings = settings;
 
@@ -65,11 +72,32 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
 	trackingInitialised = false;
 	relocalisationCount = 0;
 	framesProcessed = 0;
+
+#ifndef ICP
+
+	std::cout << "Path to groundtruth: " << pose_path << std::endl;
+        this->loadPoseQuat(pose_path);
+
+	std::cout << "Loaded queue size: " << this->seq_pose.size() << std::endl;
+        std::vector<double> loaded_pose = this->seq_pose.front();
+
+	ORUtils::Matrix4<float> assigned_M;
+	assignPose(loaded_pose, assigned_M);
+	trackingState->pose_d->SetInvM(assigned_M.m);
+#endif
 }
 
 template <typename TVoxel, typename TIndex>
 ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 {
+	// bytian: My destructor
+        this->SaveSceneToMesh("/home/bytian/Desktop/mesh/output.stl");
+#ifdef ICP
+        this->dumpPoseQuat();
+#endif
+
+
+
 	delete renderState_live;
 	if (renderState_freeview != NULL) delete renderState_freeview;
 
@@ -168,7 +196,7 @@ void ITMBasicEngine<TVoxel,TIndex>::resetAll()
 	trackingState->Reset();
 }
 
-#ifdef OUTPUT_TRAJECTORY_QUATERNIONS
+// #ifdef OUTPUT_TRAJECTORY_QUATERNIONS
 static int QuaternionFromRotationMatrix_variant(const double *matrix)
 {
 	int variant = 0;
@@ -239,20 +267,284 @@ static void QuaternionFromRotationMatrix(const double *matrix, double *q) {
 
 	if (q[0] < 0.0f) for (int i = 0; i < 4; ++i) q[i] *= -1.0f;
 }
+// #endif
+
+void printMatrix(ORUtils::SE3Pose pose)
+{
+	for (int r = 0; r < 16; r++)
+	{
+		std::cout << pose.GetM().m[r] << " ";
+		if ((r+1)%4 == 0)
+			std::cout << std::endl;
+	}
+	std::cout << std::endl << std::endl;
+}
+
+template <typename TVoxel, typename TIndex>
+void ITMBasicEngine<TVoxel,TIndex>::dumpPoseQuat()
+{
+	std::cout << "Total num of poses: " << this->seq_pose.size() << std::endl;
+
+	std::ofstream output ("ICP_Pose.txt", std::ofstream::out);
+	if (output.is_open())
+	{
+		// Queue Mode
+		while (this->seq_pose.size())
+		{
+			std::vector<double> p = this->seq_pose.front();
+			this->seq_pose.pop();
+
+			fprintf(stderr, "Output pose: %f %f %f %f %f %f %f %f\n", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+			// timestamp, tx, ty, tz, qx, qy, qz, qw
+			output << std::to_string(p[0]) << " "
+			       << p[1] << " "
+			       << p[2] << " "
+			       << p[3] << " "
+			       << p[4] << " "
+			       << p[5] << " "
+			       << p[6] << " "
+			       << p[7] << std::endl;
+		}
+	}
+	output.close();
+}
+
+template <typename TVoxel, typename TIndex>
+void ITMBasicEngine<TVoxel,TIndex>::loadPoseQuat(const char *filename)
+{
+	// clear the queue before writing
+	std::queue<std::vector<double>> empty;
+	std::swap(this->seq_pose, empty);
+
+	std::ifstream file;
+	file.open(filename);
+	std::string line;
+
+	std::vector<double> pose;
+#ifdef VCU
+	std::vector<double> VCU_pose;
 #endif
+
+	while (file.good() && (getline(file, line)))
+	{
+		pose.clear();
+#ifdef VCU
+		VCU_pose.clear();
+#endif
+
+		if (line.find("#") != std::string::npos)
+			continue;
+
+		std::istringstream iss(line);
+		double val;
+		while (iss >> val)
+		{
+			pose.push_back(val);
+
+#ifdef VCU
+			// ONLY used when axis swapping, e.g., VCU
+			VCU_pose.push_back(pose[0]);
+			VCU_pose.push_back(-pose[2]);
+			VCU_pose.push_back(-pose[1]);
+			VCU_pose.push_back(-pose[3]);
+			VCU_pose.push_back(pose[5]);
+			VCU_pose.push_back(pose[4]);
+			VCU_pose.push_back(-pose[6]);
+			VCU_pose.push_back(-pose[7]);
+		}
+		this->seq_pose.push(VCU_pose);
+#endif
+
+#ifdef TUM
+		}
+		this->seq_pose.push(pose);
+#endif
+	}
+	file.close();
+
+
+	/*************************************************
+		Sanity Check for Loaded Poses
+	*************************************************/
+	// Queue Mode
+	// while(this->seq_pose.size())
+	// {
+	// 	std::vector<double> temp_pose = this->seq_pose.front();
+	// 	this->seq_pose.pop();
+	//  	std::cout << "Sanity check for loaded pose: ";
+	// 	for (int i = 0; i < temp_pose.size(); i++)
+	// 		std::cout << temp_pose[i] << " ";
+	// 	std::cout << std::endl;
+	// }
+}
+
+
+template <typename TVoxel, typename TIndex>
+void ITMBasicEngine<TVoxel,TIndex>::assignPose(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose)
+{
+        Eigen::Quaternionf quat;
+        quat.w() = in_pose[7];
+        quat.x() = in_pose[4];
+        quat.y() = in_pose[5];
+        quat.z() = in_pose[6];
+
+	Eigen::Matrix3f rot = quat.normalized().toRotationMatrix();
+        Eigen::Vector3f pos = {in_pose[1], in_pose[2], in_pose[3]};
+
+	// ICP pose mapping
+	out_pose.m[0]  = rot(0,0);
+	out_pose.m[1]  = rot(1,0);
+	out_pose.m[2]  = rot(2,0);
+	out_pose.m[3]  = 0.0f;
+	out_pose.m[4]  = rot(0,1);
+	out_pose.m[5]  = rot(1,1);
+	out_pose.m[6]  = rot(2,1);
+	out_pose.m[7]  = 0.0f;
+	out_pose.m[8]  = rot(0,2);
+	out_pose.m[9]  = rot(1,2);
+	out_pose.m[10] = rot(2,2);
+	out_pose.m[11] = 0.0f;
+	out_pose.m[12] = pos[0];
+	out_pose.m[13] = pos[1];
+	out_pose.m[14] = pos[2];
+	out_pose.m[15] = 1.0f;
+
+#ifdef DEBUG
+	std::cout << "##### Print loaded matrix values:" << std::endl;
+	std::cout << rot(0,0) << " " << rot(1,0) << " " << rot(2,0) << " " << "0" << std::endl;
+	std::cout << rot(0,1) << " " << rot(1,1) << " " << rot(2,1) << " " << "0" << std::endl;
+	std::cout << rot(0,2) << " " << rot(1,2) << " " << rot(2,2) << " " << "0" << std::endl;
+	std::cout << pos[0]   << " " << pos[1]   << " " << pos[2]   << " " << "1" << std::endl;
+	std::cout << std::endl;
+#endif
+}
+
 
 template <typename TVoxel, typename TIndex>
 ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement)
 {
+	std::cout << "============================ Begin A New Frame ============================" << std::endl;
 	// prepare image and turn it into a depth image
 	if (imuMeasurement == NULL) viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter);
 	else viewBuilder->UpdateView(&view, rgbImage, rawDepthImage, settings->useBilateralFilter, imuMeasurement);
 
 	if (!mainProcessingActive) return ITMTrackingState::TRACKING_FAILED;
 
+
 	// tracking
 	ORUtils::SE3Pose oldPose(*(trackingState->pose_d));
+
+#ifdef ICP
 	if (trackingActive) trackingController->Track(trackingState, view);
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	ORUtils::SE3Pose myPose(*(trackingState->pose_d));
+
+#ifdef DEBUG
+	std::cout << std::endl;
+	std::cout << "##### Print fetched pose matrix: " << std::endl;
+	printMatrix(myPose);
+
+	ORUtils::SE3Pose inv_myPose;
+	myPose.M.inv(inv_myPose.M);
+	std::cout << "##### Print fetched pose matrix in inversion: " << std::endl;
+	printMatrix(inv_myPose);
+
+	ORUtils::SE3Pose inv_inv_myPose;
+	inv_myPose.M.inv(inv_inv_myPose.M);
+	std::cout << "##### Print fetched pose matrix in double inversion: " << std::endl;
+	printMatrix(inv_inv_myPose);
+#endif
+
+	double t[3];
+	double R[9];
+	double q[4];
+	std::cout << "Print translation part to check if inversed: " << std::endl;
+	for (int i = 0; i < 3; ++i)
+	{
+		t[i] = myPose.GetInvM().m[3 * 4 + i];
+		// t[i] = myPose.GetM().m[3 * 4 + i];
+		std::cout << t[i] << std::endl;
+	}
+
+	std::cout << "Print rotation part to check if inversed: " << std::endl;
+	for (int r = 0; r < 3; ++r)
+	{
+		for (int c = 0; c < 3; ++c)
+		{
+			R[r * 3 + c] = myPose.GetM().m[c * 4 + r];
+			// R[r * 3 + c] = myPose.GetInvM().m[c * 4 + r];
+			std::cout << R[r * 3 + c] << " ";
+		}
+		std::cout << std::endl;
+	}
+
+	QuaternionFromRotationMatrix(R, q);
+
+	// TUM order: timestamp, tx, ty, tz, rx, ry, rz, rw
+	int num_element = 8;
+	double array_pose[num_element] = {std::stod(this->currentTimeStamp.c_str()), t[0], t[1], t[2], q[1], q[2], q[3], q[0]};
+	std::vector<double> out_pose(array_pose, array_pose + num_element);
+	this->seq_pose.push(out_pose);
+
+	fprintf(stderr, "%f %f %f %f %f %f %f %f\n", array_pose[0], t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef DEBUG
+	std::cout << "before tx: " << trackingState->pose_d->params.each.tx << std::endl;
+	std::cout << "before ty: " << trackingState->pose_d->params.each.ty << std::endl;
+	std::cout << "before tz: " << trackingState->pose_d->params.each.tz << std::endl;
+	std::cout << "before rx: " << trackingState->pose_d->params.each.rx << std::endl;
+	std::cout << "before ry: " << trackingState->pose_d->params.each.ry << std::endl;
+	std::cout << "before rz: " << trackingState->pose_d->params.each.rz << std::endl;
+	std::cout << std::endl;
+#endif
+
+#else // Use loaded groundtruth
+
+	/*************************************************
+		Sanity Check with Computed ICP Poses
+		Load from ICP Outputs
+	**************************************************/
+	// Eigen::Quaternionf quat;
+	// quat.w() = q[0];
+	// quat.x() = q[1];
+	// quat.y() = q[2];
+	// quat.z() = q[3];
+	// Eigen::Vector3f pos = {t[0], t[1], t[2]};
+	// Eigen::Matrix3f rot = quat.normalized().toRotationMatrix();
+
+	/*************************************************
+		Sanity Check with Computed ICP Poses
+		Loadf from File
+	**************************************************/
+	std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;
+
+	std::vector<double> loaded_pose = this->seq_pose.front();
+	this->seq_pose.pop();
+
+	ORUtils::Matrix4<float> assigned_M;
+	assignPose(loaded_pose, assigned_M);
+
+
+	// Regular
+	trackingState->pose_d->SetInvM(assigned_M.m);
+
+#ifdef DEBUG
+        std::cout << "##### Print assigned pose matrix: " << std::endl;
+	ORUtils::SE3Pose sanityAssignedPose(*(trackingState->pose_d));
+	printMatrix(sanityAssignedPose);
+
+	// std::cout << "after tx: " << trackingState->pose_d->params.each.tx << std::endl;
+	// std::cout << "after ty: " << trackingState->pose_d->params.each.ty << std::endl;
+	// std::cout << "after tz: " << trackingState->pose_d->params.each.tz << std::endl;
+	// std::cout << "after rx: " << trackingState->pose_d->params.each.rx << std::endl;
+	// std::cout << "after ry: " << trackingState->pose_d->params.each.ry << std::endl;
+	// std::cout << "after rz: " << trackingState->pose_d->params.each.rz << std::endl;
+#endif // End of DEBUG
+
+#endif // End of Using Groundtruth
+
 
 	ITMTrackingState::TrackingResult trackerResult = ITMTrackingState::TRACKING_GOOD;
 	switch (settings->behaviourOnFailure) {
@@ -338,8 +630,9 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	fprintf(stderr, "%f %f %f %f %f %f %f\n", t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
 #endif
     
-    return trackerResult;
+	return trackerResult;
 }
+
 
 template <typename TVoxel, typename TIndex>
 Vector2i ITMBasicEngine<TVoxel,TIndex>::GetImageSize(void) const

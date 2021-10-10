@@ -65,6 +65,8 @@ namespace InputSource {
 		 * \return  true, if the image source engine is able to yield more RGB-D images, or false otherwise.
 		 */
 		virtual bool hasMoreImages(void) const = 0;
+
+		mutable std::string currentTimeStamp;
 	};
 
 	class BaseImageSourceEngine : public ImageSourceEngine
@@ -118,6 +120,8 @@ namespace InputSource {
 		mutable size_t cachedFrameNo;
 		size_t currentFrameNo;
 		mutable bool cacheIsValid;
+
+		using ImageSourceEngine::currentTimeStamp;
 
 		PathGenerator pathGenerator;
 	public:

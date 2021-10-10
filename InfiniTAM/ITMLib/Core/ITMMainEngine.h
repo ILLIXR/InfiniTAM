@@ -83,6 +83,12 @@ namespace ITMLib
 		virtual void SaveToFile() { };
 		virtual void LoadFromFile() { };
 
+		// bytian: my functions
+		virtual void dumpPoseQuat() { };
+		virtual void loadPoseQuat(const char *filename) { };
+
+		std::string currentTimeStamp;
+
 		virtual ~ITMMainEngine() {}
 	};
 }

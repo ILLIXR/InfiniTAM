@@ -3,6 +3,7 @@
 #include "CLIEngine.h"
 
 #include <string.h>
+#include <iostream>
 
 #include "../../ORUtils/FileUtils.h"
 
@@ -40,6 +41,7 @@ void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuS
 	printf("initialised.\n");
 }
 
+
 bool CLIEngine::ProcessFrame()
 {
 	if (!imageSource->hasMoreImages()) return false;
@@ -54,6 +56,7 @@ bool CLIEngine::ProcessFrame()
 	sdkStartTimer(&timer_instant); sdkStartTimer(&timer_average);
 
 	//actual processing on the mailEngine
+	mainEngine->currentTimeStamp = imageSource->currentTimeStamp;
 	if (imuSource != NULL) mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
 	else mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
 
@@ -75,6 +78,7 @@ bool CLIEngine::ProcessFrame()
 void CLIEngine::Run()
 {
 	while (true) {
+	// while (currentFrameNo <= 100) {
 		if (!ProcessFrame()) break;
 	}
 }
@@ -83,6 +87,7 @@ void CLIEngine::Shutdown()
 {
 	sdkDeleteTimer(&timer_instant);
 	sdkDeleteTimer(&timer_average);
+
 
 	delete inputRGBImage;
 	delete inputRawDepthImage;

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <queue>
+
 #include "ITMDenseMapper.h"
 #include "ITMMainEngine.h"
 #include "ITMTrackingController.h"
@@ -49,6 +51,10 @@ namespace ITMLib
 		/// Pointer to the current camera pose and additional tracking information
 		ITMTrackingState *trackingState;
 
+		// bytian: My variables
+		std::queue<std::vector<double>> seq_pose;
+		using ITMMainEngine::currentTimeStamp;
+
 	public:
 		ITMView* GetView(void) { return view; }
 		ITMTrackingState* GetTrackingState(void) { return trackingState; }
@@ -85,11 +91,15 @@ namespace ITMLib
 		/// resets the scene and the tracker
 		void resetAll();
 
+		void dumpPoseQuat();
+		void loadPoseQuat(const char *filename);
+		void assignPose(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose);
+
 		/** \brief Constructor
 			Omitting a separate image size for the depth images
 			will assume same resolution as for the RGB images.
 		*/
-		ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d = Vector2i(-1, -1));
+		ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d = Vector2i(-1, -1), const char* pose_path = "");
 		~ITMBasicEngine();
 	};
 }
