@@ -611,6 +611,8 @@ void UIEngine::ProcessFrame()
 	if (!imageSource->hasMoreImages()) return;
 	imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
+	mainEngine->currentTimeStamp = imageSource->currentTimeStamp;
+
 	if (imuSource != NULL) {
 		if (!imuSource->hasMoreMeasurements()) return;
 		else imuSource->getMeasurement(inputIMUMeasurement);
@@ -646,6 +648,8 @@ void UIEngine::ProcessFrame()
 	else trackerResult = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
 
 	trackingResult = (int)trackerResult;
+
+	std::cout << "Current Frame No: " << currentFrameNo << " - Tracking Result: " << trackingResult << std::endl;
 
 #ifndef COMPILE_WITHOUT_CUDA
 	ORcudaSafeCall(cudaThreadSynchronize());

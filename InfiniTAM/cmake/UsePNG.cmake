@@ -2,7 +2,7 @@
 # UsePNG.cmake #
 ################
 
-OPTION(WITH_PNG "Build with libpng support?" OFF)
+OPTION(WITH_PNG "Build with libpng support?" ON)
 
 IF(WITH_PNG)
   FIND_PACKAGE(PNG REQUIRED)

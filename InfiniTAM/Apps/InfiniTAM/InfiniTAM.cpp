@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include "UIEngine.h"
 
@@ -21,6 +23,46 @@
 using namespace InfiniTAM::Engine;
 using namespace InputSource;
 using namespace ITMLib;
+
+std::vector<std::string> list2vec(std::string filename, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
+{
+        std::ifstream file;
+        file.open(filename);
+        std::string line;
+
+        std::vector<std::string> output;
+        std::vector<double> pose_value;
+
+		// get the path to the input list file
+        std::string path = filename.substr(0, filename.find_last_of("/")+1);
+
+        while(file.good() && (getline(file, line)))
+        {
+#ifdef DEBUG
+                std::cout << "[DEBUG ]line: " << line << std::endl;
+#endif
+                output.clear();
+                if (line.find("#") != std::string::npos)
+                        continue;
+
+                std::istringstream iss(line);
+                std::string str;
+                while (iss >> str)
+                {
+#ifdef DEBUG
+                        std::cout << "[DEBUG] str: " << str << std::endl;
+#endif
+                        output.push_back(str);
+                }
+				// This follows the particular list format specified
+				// ts, gt, ts/path for depth, ts/path for color
+                color_image.push_back(path + output[11]);
+                depth_image.push_back(path + output[9]);
+        }
+        std::cout << "Filename: " << filename+"/../"+color_image[1] << std::endl;
+        std::cout << "Path: " << path << std::endl;
+        return output;
+}
 
 /** Create a default source of depth images from a list of command line
     arguments. Typically, @para arg1 would identify the calibration file to
@@ -49,8 +91,27 @@ static void CreateDefaultImageSource(ImageSourceEngine* & imageSource, IMUSource
 		printf("using rgb images: %s\nusing depth images: %s\n", filename1, filename2);
 		if (filename_imu == NULL)
 		{
+#ifdef UseMask
+			std::cout << "Using ImageMaskPathGenerator! " << std::endl;
 			ImageMaskPathGenerator pathGenerator(filename1, filename2);
 			imageSource = new ImageFileReader<ImageMaskPathGenerator>(calibFile, pathGenerator);
+
+#elif defined UseList
+			std::cout << "Using ImageListPathGenerator! " << std::endl;
+
+			std::vector<std::string> color_list;
+			std::vector<std::string> depth_list;
+
+			list2vec(filename1, color_list, depth_list);
+
+			std::cout << "List size:" << color_list.size() << " " << depth_list.size() << std::endl;
+			ImageListPathGenerator pathGenerator(color_list, depth_list);
+			imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
+
+#else
+			std::cout << "[Error] Please specify the format type of input data! Mask or List?" << std::endl;
+			abort();
+#endif
 		}
 		else
 		{

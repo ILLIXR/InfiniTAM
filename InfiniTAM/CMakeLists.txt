@@ -37,6 +37,24 @@ IF(MSVC_IDE)
   ADD_DEFINITIONS(-DUSING_CMAKE=1)
 ENDIF()
 
+# bytian: my definitions for input format
+
+# UseList: associated data list
+# UseMask: folders with image in %0xd.xxx
+# ADD_DEFINITIONS(-DUseList)
+ADD_DEFINITIONS(-DUseMask)
+
+# Use ICP or loaded poses
+ADD_DEFINITIONS(-DICP)
+
+# Verbose debug prints
+# ADD_DEFINITIONS(-DDEBUG)
+
+# Pose format
+# TUM: VCU:
+# Will use an unified format later
+ADD_DEFINITIONS(-DTUM)
+
 ######################
 # Add subdirectories #
 ######################

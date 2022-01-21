@@ -8,7 +8,8 @@ using namespace ITMLib;
 
 ITMLibSettings::ITMLibSettings(void)
 // :	sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false), // default
-:	sceneParams(0.02f, 500, 0.002f, 0.2f, 3.0f, false),
+// :	sceneParams(0.02f, 500, 0.002f, 0.2f, 3.0f, false), // Used most of the time
+ :	sceneParams(0.05f, 100, 0.005f, 0.2f, 3.0f, true), // For VCU robustness test
 	surfelSceneParams(0.5f, 0.6f, static_cast<float>(20 * M_PI / 180), 0.01f, 0.004f, 3.5f, 25.0f, 4, 1.0f, 5.0f, 20, 10000000, true, true)
 {
 	// skips every other point when using the colour renderer for creating a point cloud
@@ -41,6 +42,8 @@ ITMLibSettings::ITMLibSettings(void)
 
 	/// what to do on tracker failure: ignore, relocalise or stop integration - not supported in loop closure version
 	behaviourOnFailure = FAILUREMODE_IGNORE;
+	// behaviourOnFailure = FAILUREMODE_STOP_INTEGRATION;
+	// behaviourOnFailure = FAILUREMODE_RELOCALISE;
 
 	/// switch between various library modes - basic, with loop closure, etc.
 	libMode = LIBMODE_BASIC;
@@ -55,7 +58,7 @@ ITMLibSettings::ITMLibSettings(void)
 	trackerConfig = "type=extended,levels=rrbb,useDepth=1,minstep=1e-4,"
 					  "outlierSpaceC=0.1,outlierSpaceF=0.004,"
 					  "numiterC=20,numiterF=50,tukeyCutOff=8,"
-					  "framesToSkip=20,framesToWeight=50,failureDec=20.0";
+					  "framesToSkip=1,framesToWeight=50,failureDec=20.0";
 
 	//// For hybrid intensity+depth tracking:
 	//trackerConfig = "type=extended,levels=bbb,useDepth=1,useColour=1,"

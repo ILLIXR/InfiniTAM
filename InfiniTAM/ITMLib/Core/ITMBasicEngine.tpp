@@ -18,9 +18,6 @@
 
 //#define OUTPUT_TRAJECTORY_QUATERNIONS
 
-// #define ICP
-#define TUM
-
 using namespace ITMLib;
 
 template <typename TVoxel, typename TIndex>
@@ -459,22 +456,20 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	double t[3];
 	double R[9];
 	double q[4];
-	std::cout << "Print translation part to check if inversed: " << std::endl;
+	// std::cout << "Print translation part to check if inversed: " << std::endl;
 	for (int i = 0; i < 3; ++i)
 	{
 		t[i] = myPose.GetInvM().m[3 * 4 + i];
-		// t[i] = myPose.GetM().m[3 * 4 + i];
-		std::cout << t[i] << std::endl;
+		// std::cout << t[i] << std::endl;
 	}
 
-	std::cout << "Print rotation part to check if inversed: " << std::endl;
+	// std::cout << "Print rotation part to check if inversed: " << std::endl;
 	for (int r = 0; r < 3; ++r)
 	{
 		for (int c = 0; c < 3; ++c)
 		{
 			R[r * 3 + c] = myPose.GetM().m[c * 4 + r];
-			// R[r * 3 + c] = myPose.GetInvM().m[c * 4 + r];
-			std::cout << R[r * 3 + c] << " ";
+			// std::cout << R[r * 3 + c] << " ";
 		}
 		std::cout << std::endl;
 	}

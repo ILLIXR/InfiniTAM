@@ -126,10 +126,8 @@ void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 
 	if (depthPath != "")
 	{
-		size_t pos = 0;
-		std::string delim = "depth/";
-		pos = depthPath.find(delim);
-		currentTimeStamp = depthPath.substr(pos + delim.length(), 17);
+		std::string filename = depthPath.substr(depthPath.find_last_of("/")+1, -1);
+		currentTimeStamp = filename.substr(0, filename.find(".png"));
 		std::cout << "Current timestamp: " << currentTimeStamp << std::endl;
 	}
 }
