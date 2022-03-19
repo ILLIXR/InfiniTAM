@@ -91,7 +91,7 @@ namespace ITMLib
 		/// resets the scene and the tracker
 		void resetAll();
 
-		void dumpPoseQuat();
+		void dumpPoseQuat(std::string filename);
 		void loadPoseQuat(const char *filename);
 		void assignPose(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose);
 

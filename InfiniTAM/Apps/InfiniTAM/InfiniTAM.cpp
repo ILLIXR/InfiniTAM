@@ -26,6 +26,10 @@ using namespace ITMLib;
 
 std::vector<std::string> list2vec(std::string filename, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
 {
+
+		int frameNo = 0;
+		double timestamp = 0.0;
+
         std::ifstream file;
         file.open(filename);
         std::string line;
@@ -39,7 +43,7 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
         while(file.good() && (getline(file, line)))
         {
 #ifdef DEBUG
-                std::cout << "[DEBUG ]line: " << line << std::endl;
+                std::cout << "[DEBUG] line: " << line << std::endl;
 #endif
                 output.clear();
                 if (line.find("#") != std::string::npos)
@@ -54,12 +58,83 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
 #endif
                         output.push_back(str);
                 }
+				frameNo++;
+				timestamp = std::stod(output[0]);
+
+#ifdef DEBUG
+				std::cout << "[DEBUG] frameNo: " << frameNo << std::endl;
+				std::cout << "[DEBUG] timestamp: " << timestamp << std::endl;
+#endif
+
+				/*** 0207 partial test - lab-simple3 ***/
+
+				// if (timestamp < 5815.00 || timestamp > 5825.00) // 5815 - 25
+				// if (timestamp < 5800.00 || timestamp > 5810.00) // 5800 - 10
+
+				/*** 0216 ICP on all ***/
+
+				/* lab simple1 */
+				// if (timestamp < 5643.577500690)
+				// if (timestamp < 5645.179388000)
+				// if (timestamp < 5650.179388000 || frameNo > 913)
+
+				/* lab simple2 */
+				// if (timestamp < 5724.120164271)
+				// if (timestamp < 5725.992547000)
+				// if (timestamp < 5743.992547000)
+
+				/* lab simple3 */
+				// if (timestamp < 5798.100389485)
+				// if (timestamp < 5800.002870000 || frameNo > 1334)
+
+				/* corridor4 */
+				// if (frameNo > 400)
+
+				/* hall1 */
+				// if (frameNo > 450)
+
+				/* lab-bumper2 */
+				/* lab-bumper5 */
+
+				/* lab-dynamic5 */
+				// if (frameNo > 750)
+
+				/* lab-light4 */
+				// if (frameNo > 800)
+
+				/* lab-manual3 */
+				// if (frameNo > 3450)
+
+				/* lab-motion3 */
+				// if (frameNo > 700)
+
+				/* office-kt0 */
+				// if (frameNo > 900)
+
+				/* living-kt0 */
+				// if (frameNo > 1000)
+
+					// continue;
+
+
 				// This follows the particular list format specified
-				// ts, gt, ts/path for depth, ts/path for color
-                color_image.push_back(path + output[11]);
-                depth_image.push_back(path + output[9]);
+
+				/***************************************************
+				// fully associated: ts, gt, ts/path for depth, ts/path for color
+				***************************************************/
+                // color_image.push_back(path + output[11]);
+                // depth_image.push_back(path + output[9]);
+
+				/***************************************************
+				// rgb-d associated: ts/path for depth, ts/path for color
+				***************************************************/
+                // color_image.push_back(path + output[3]);
+                // depth_image.push_back(path + output[1]);
+				// handle the case that the file inside of 'associated'
+                color_image.push_back(path + "../" + output[3]);
+                depth_image.push_back(path + "../" + output[1]);
         }
-        std::cout << "Filename: " << filename+"/../"+color_image[1] << std::endl;
+        std::cout << "Filename: " << filename+"../"+color_image[1] << std::endl;
         std::cout << "Path: " << path << std::endl;
         return output;
 }

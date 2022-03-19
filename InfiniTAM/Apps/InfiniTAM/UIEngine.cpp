@@ -608,7 +608,10 @@ void UIEngine::GetScreenshot(ITMUChar4Image *dest) const
 
 void UIEngine::ProcessFrame()
 {
-	if (!imageSource->hasMoreImages()) return;
+	UIEngine *uiEngine = UIEngine::Instance();
+	if (!imageSource->hasMoreImages())
+		uiEngine->mainLoopAction = UIEngine::EXIT;
+
 	imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
 	mainEngine->currentTimeStamp = imageSource->currentTimeStamp;

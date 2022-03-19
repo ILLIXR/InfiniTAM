@@ -41,8 +41,8 @@ ENDIF()
 
 # UseList: associated data list
 # UseMask: folders with image in %0xd.xxx
-# ADD_DEFINITIONS(-DUseList)
-ADD_DEFINITIONS(-DUseMask)
+ADD_DEFINITIONS(-DUseList)
+# ADD_DEFINITIONS(-DUseMask)
 
 # Use ICP or loaded poses
 ADD_DEFINITIONS(-DICP)
@@ -51,9 +51,7 @@ ADD_DEFINITIONS(-DICP)
 # ADD_DEFINITIONS(-DDEBUG)
 
 # Pose format
-# TUM: VCU:
-# Will use an unified format later
-ADD_DEFINITIONS(-DTUM)
+# ADD_DEFINITIONS(-DVCU)
 
 ######################
 # Add subdirectories #
