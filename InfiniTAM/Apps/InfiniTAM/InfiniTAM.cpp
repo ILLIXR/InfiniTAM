@@ -161,32 +161,29 @@ static void CreateDefaultImageSource(ImageSourceEngine* & imageSource, IMUSource
 
 	printf("using calibration file: %s\n", calibFile);
 
+	if ((imageSource == NULL) && (filename1 != NULL) && (filename2 == NULL))
+	{
+		std::cout << "Using ImageListPathGenerator! " << std::endl;
+
+		std::vector<std::string> color_list;
+		std::vector<std::string> depth_list;
+
+		list2vec(filename1, color_list, depth_list);
+
+		std::cout << "List size:" << color_list.size() << " " << depth_list.size() << std::endl;
+		ImageListPathGenerator pathGenerator(color_list, depth_list);
+		imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
+	}
+
 	if ((imageSource == NULL) && (filename2 != NULL))
 	{
 		printf("using rgb images: %s\nusing depth images: %s\n", filename1, filename2);
 		if (filename_imu == NULL)
 		{
-#ifdef UseMask
 			std::cout << "Using ImageMaskPathGenerator! " << std::endl;
+
 			ImageMaskPathGenerator pathGenerator(filename1, filename2);
 			imageSource = new ImageFileReader<ImageMaskPathGenerator>(calibFile, pathGenerator);
-
-#elif defined UseList
-			std::cout << "Using ImageListPathGenerator! " << std::endl;
-
-			std::vector<std::string> color_list;
-			std::vector<std::string> depth_list;
-
-			list2vec(filename1, color_list, depth_list);
-
-			std::cout << "List size:" << color_list.size() << " " << depth_list.size() << std::endl;
-			ImageListPathGenerator pathGenerator(color_list, depth_list);
-			imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
-
-#else
-			std::cout << "[Error] Please specify the format type of input data! Mask or List?" << std::endl;
-			abort();
-#endif
 		}
 		else
 		{
@@ -312,8 +309,8 @@ try
 		       "                  or two arguments specifying rgb and depth file masks\n"
 		       "\n"
 		       "examples:\n"
-		       "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm ./Files/Teddy/Frames/%%04i.pgm\n"
-		       "  %s ./Files/Teddy/calib.txt\n\n", argv[0], argv[0], argv[0]);
+		       "  %s ./Files/Teddy/calib.txt ./Files/Teddy/color/%%04i.ppm ./Files/Teddy/depth/%%04i.pgm\n"
+		       "  %s ./Files/Teddy/calib.txt ./Files/Teddy/associated_rgbd.txt\n\n", argv[0], argv[0], argv[0]);
 	}
 
 	printf("initialising ...\n");
