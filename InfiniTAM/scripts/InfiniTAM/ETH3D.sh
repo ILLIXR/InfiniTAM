@@ -15,7 +15,7 @@ then
 fi
 
 # Fully associated with GT
-# ../build/Apps/InfiniTAM/InfiniTAM ./calibration/ETH3D.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/data.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/data.txt
+# ../../build/Apps/InfiniTAM/InfiniTAM ../calibration/ETH3D.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/data.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/data.txt
 
 # RGB-D associated
-../build/Apps/InfiniTAM/InfiniTAM ./calibration/ETH3D.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/associated/rgbd.txt
+../../build/Apps/InfiniTAM/InfiniTAM ../calibration/ETH3D.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/associated/rgbd.txt

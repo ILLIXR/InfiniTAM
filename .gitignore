@@ -18,3 +18,5 @@ x64/
 
 # QtCreator CMake
 CMakeLists.txt.user*
+
+InfiniTAM/scripts/InfiniTAM/ITM-ICP-Pose.txt
