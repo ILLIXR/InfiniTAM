@@ -139,6 +139,9 @@ void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 template <typename PathGenerator>
 bool ImageFileReader<PathGenerator>::hasMoreImages(void) const
 {
+#ifdef DEBUG
+	std::cout << "[DEBUG] Check next image !!!" << std::endl;
+#endif
 	loadIntoCache();
 	return cacheIsValid;
 }
@@ -146,6 +149,9 @@ bool ImageFileReader<PathGenerator>::hasMoreImages(void) const
 template <typename PathGenerator>
 void ImageFileReader<PathGenerator>::getImages(ITMUChar4Image *rgb, ITMShortImage *rawDepth)
 {
+#ifdef DEBUG
+	std::cout << "[DEBUG] Actually load image !!!" << std::endl;
+#endif
 	loadIntoCache();
 	rgb->SetFrom(cached_rgb, ORUtils::MemoryBlock<Vector4u>::CPU_TO_CPU);
 	rawDepth->SetFrom(cached_depth, ORUtils::MemoryBlock<short>::CPU_TO_CPU);

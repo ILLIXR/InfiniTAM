@@ -44,8 +44,11 @@ void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuS
 
 bool CLIEngine::ProcessFrame()
 {
+	std::cout << "============================ Begin A Frame =============================" << std::endl;
+
 	if (!imageSource->hasMoreImages()) return false;
 	imageSource->getImages(inputRGBImage, inputRawDepthImage);
+
 
 	if (imuSource != NULL) {
 		if (!imuSource->hasMoreMeasurements()) return false;
@@ -68,7 +71,7 @@ bool CLIEngine::ProcessFrame()
 	float processedTime_inst = sdkGetTimerValue(&timer_instant);
 	float processedTime_avg = sdkGetAverageTimerValue(&timer_average);
 
-	printf("frame %i: time %.2f, avg %.2f\n", currentFrameNo, processedTime_inst, processedTime_avg);
+	printf("frame %i: time %.2f, avg %.2f\n\n", currentFrameNo, processedTime_inst, processedTime_avg);
 
 	currentFrameNo++;
 
