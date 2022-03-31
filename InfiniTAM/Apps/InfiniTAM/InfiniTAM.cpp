@@ -24,9 +24,8 @@ using namespace InfiniTAM::Engine;
 using namespace InputSource;
 using namespace ITMLib;
 
-std::vector<std::string> list2vec(std::string filename, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
+void list2vec(std::string filename, std::vector<std::string> &time_list, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
 {
-
 		int frameNo = 0;
 		double timestamp = 0.0;
 
@@ -35,7 +34,6 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
         std::string line;
 
         std::vector<std::string> output;
-        std::vector<double> pose_value;
 
 		// get the path to the input list file
         std::string path = filename.substr(0, filename.find_last_of("/")+1);
@@ -60,6 +58,7 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
                 }
 				frameNo++;
 				timestamp = std::stod(output[0]);
+				time_list.push_back(output[0]);
 
 #ifdef DEBUG
 				std::cout << "[DEBUG] frameNo: " << frameNo << std::endl;
@@ -136,7 +135,6 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
         }
         std::cout << "Filename: " << filename+"../"+color_image[1] << std::endl;
         std::cout << "Path: " << path << std::endl;
-        return output;
 }
 
 /** Create a default source of depth images from a list of command line
@@ -165,13 +163,14 @@ static void CreateDefaultImageSource(ImageSourceEngine* & imageSource, IMUSource
 	{
 		std::cout << "Using ImageListPathGenerator! " << std::endl;
 
+		std::vector<std::string> time_list;
 		std::vector<std::string> color_list;
 		std::vector<std::string> depth_list;
 
-		list2vec(filename1, color_list, depth_list);
+		list2vec(filename1, time_list, color_list, depth_list);
 
-		std::cout << "List size:" << color_list.size() << " " << depth_list.size() << std::endl;
-		ImageListPathGenerator pathGenerator(color_list, depth_list);
+		std::cout << "List size:" << time_list.size() << " " << color_list.size() << " " << depth_list.size() << std::endl;
+		ImageListPathGenerator pathGenerator(time_list, color_list, depth_list);
 		imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
 	}
 

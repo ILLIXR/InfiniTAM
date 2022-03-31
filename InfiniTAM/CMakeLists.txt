@@ -40,13 +40,13 @@ ENDIF()
 # bytian: my definitions for input format
 
 # Use ICP or loaded poses
-ADD_DEFINITIONS(-DICP)
-
-# Verbose debug prints
-# ADD_DEFINITIONS(-DDEBUG)
+# ADD_DEFINITIONS(-DICP)
 
 # Pose format
 # ADD_DEFINITIONS(-DVCU)
+
+# Verbose debug prints
+# ADD_DEFINITIONS(-DDEBUG)
 
 ######################
 # Add subdirectories #

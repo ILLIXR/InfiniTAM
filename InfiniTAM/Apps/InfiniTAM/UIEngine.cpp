@@ -608,9 +608,13 @@ void UIEngine::GetScreenshot(ITMUChar4Image *dest) const
 
 void UIEngine::ProcessFrame()
 {
+	std::cout << "============================ Begin A Frame =============================" << std::endl;
 	UIEngine *uiEngine = UIEngine::Instance();
 	if (!imageSource->hasMoreImages())
+	{
 		uiEngine->mainLoopAction = UIEngine::EXIT;
+		return;
+	}
 
 	imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
@@ -652,7 +656,7 @@ void UIEngine::ProcessFrame()
 
 	trackingResult = (int)trackerResult;
 
-	std::cout << "Current Frame No: " << currentFrameNo << " - Tracking Result: " << trackingResult << std::endl;
+	std::cout << "Current Frame No: " << currentFrameNo << " - Tracking Result: " << trackingResult << std::endl << std::endl;
 
 #ifndef COMPILE_WITHOUT_CUDA
 	ORcudaSafeCall(cudaThreadSynchronize());

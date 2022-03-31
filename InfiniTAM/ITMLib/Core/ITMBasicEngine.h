@@ -54,6 +54,7 @@ namespace ITMLib
 		// bytian: My variables
 		std::queue<std::vector<double>> seq_pose;
 		using ITMMainEngine::currentTimeStamp;
+		ORUtils::Matrix4<float> matrix_TCtoI;
 
 	public:
 		ITMView* GetView(void) { return view; }
@@ -93,7 +94,9 @@ namespace ITMLib
 
 		void dumpPoseQuat(std::string filename);
 		void loadPoseQuat(const char *filename);
-		void assignPose(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose);
+
+		void Quaternion2Matrix(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose);
+		void Matrix2Quaternion(ORUtils::SE3Pose &in_pose);
 
 		/** \brief Constructor
 			Omitting a separate image size for the depth images

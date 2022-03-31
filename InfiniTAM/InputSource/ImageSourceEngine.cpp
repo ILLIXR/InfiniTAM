@@ -36,6 +36,11 @@ ImageMaskPathGenerator::ImageMaskPathGenerator(const char *rgbImageMask_, const 
 	strncpy(depthImageMask, depthImageMask_, BUF_SIZE);
 }
 
+std::string ImageMaskPathGenerator::getTimeStamp(size_t currentFrameNo) const
+{
+	return std::to_string(currentFrameNo);
+}
+
 std::string ImageMaskPathGenerator::getRgbImagePath(size_t currentFrameNo) const
 {
 	char str[BUF_SIZE];
@@ -50,12 +55,18 @@ std::string ImageMaskPathGenerator::getDepthImagePath(size_t currentFrameNo) con
 	return std::string(str);
 }
 
-ImageListPathGenerator::ImageListPathGenerator(const std::vector<std::string>& rgbImagePaths_, const std::vector<std::string>& depthImagePaths_)
+ImageListPathGenerator::ImageListPathGenerator(const std::vector<std::string>& timestampList_, const std::vector<std::string>& rgbImagePaths_, const std::vector<std::string>& depthImagePaths_)
 	: depthImagePaths(depthImagePaths_),
-	  rgbImagePaths(rgbImagePaths_)
+	  rgbImagePaths(rgbImagePaths_),
+      timestampList(timestampList_)
 {
 	// bytian: commented out due to dataset inconsistency
 	// if(rgbImagePaths.size() != depthImagePaths.size()) DIEWITHEXCEPTION("error: the rgb and depth image path lists do not have the same size");
+}
+
+std::string ImageListPathGenerator::getTimeStamp(size_t currentFrameNo) const
+{
+	return currentFrameNo < imageCount() ? timestampList[currentFrameNo] : "";
 }
 
 std::string ImageListPathGenerator::getRgbImagePath(size_t currentFrameNo) const
@@ -124,16 +135,8 @@ void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 	// bytian: changed due to dataset unmatched frames
 	if ((cached_rgb->noDims.x <= 0) && (cached_depth->noDims.x <= 0)) cacheIsValid = false;
 
-	if (depthPath != "")
-	{
-		std::string filename = depthPath.substr(depthPath.find_last_of("/")+1, -1);
-		currentTimeStamp = filename.substr(0, filename.find(".png"));
-#ifdef VCU
-		std::size_t pos = currentTimeStamp.size() - 9;
-		currentTimeStamp = currentTimeStamp.substr(0,pos) + "." + currentTimeStamp.substr(pos,-1);
-#endif
-		std::cout << "Current timestamp: " << currentTimeStamp << std::endl;
-	}
+	currentTimeStamp = pathGenerator.getTimeStamp(currentFrameNo);
+	std::cout << "Current timestamp: " << currentTimeStamp << std::endl;
 }
 
 template <typename PathGenerator>

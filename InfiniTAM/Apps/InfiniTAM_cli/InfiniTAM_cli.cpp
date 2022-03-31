@@ -17,7 +17,7 @@ using namespace InfiniTAM::Engine;
 using namespace InputSource;
 using namespace ITMLib;
 
-std::vector<std::string> list2vec(std::string filename, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
+void list2vec(std::string filename, std::vector<std::string> &time_list, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
 {
         std::ifstream file;
         file.open(filename);
@@ -46,17 +46,20 @@ std::vector<std::string> list2vec(std::string filename, std::vector<std::string>
 #endif
                         output.push_back(str);
                 }
+				time_list.push_back(output[0]);
+
                 // color_image.push_back(output[11]);
                 // depth_image.push_back(output[9]);
 
-                color_image.push_back(path+"../"+output[11]);
-                depth_image.push_back(path+"../"+output[9]);
                 // color_image.push_back(path + output[11]);
                 // depth_image.push_back(path + output[9]);
+
+                color_image.push_back(path+"../"+output[11]);
+                depth_image.push_back(path+"../"+output[9]);
+
         }
         std::cout << "Filename: " << filename+"../"+color_image[1] << std::endl;
         std::cout << "Path: " << path << std::endl;
-        return output;
 }
 
 int main(int argc, char** argv)
@@ -103,13 +106,14 @@ try
 		std::cout << "Using ImageListPathGenerator! " << std::endl;
 		groundtruth = imagesource_part1;
 
+		std::vector<std::string> time_list;
 		std::vector<std::string> color_list;
 		std::vector<std::string> depth_list;
 
-		list2vec(imagesource_part1, color_list, depth_list);
+		list2vec(imagesource_part1, time_list, color_list, depth_list);
 
 		std::cout << "size:" << color_list.size() << " " << depth_list.size() << std::endl;
-		ImageListPathGenerator pathGenerator(color_list, depth_list);
+		ImageListPathGenerator pathGenerator(time_list, color_list, depth_list);
 		imageSource = new ImageFileReader<ImageListPathGenerator>(calibFile, pathGenerator);
 	}
 	else

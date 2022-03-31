@@ -90,6 +90,7 @@ namespace InputSource {
 
 	public:
 		ImageMaskPathGenerator(const char *rgbImageMask, const char *depthImageMask);
+		std::string getTimeStamp(size_t currentFrameNo) const;
 		std::string getRgbImagePath(size_t currentFrameNo) const;
 		std::string getDepthImagePath(size_t currentFrameNo) const;
 	};
@@ -99,11 +100,13 @@ namespace InputSource {
 	private:
 		std::vector<std::string> depthImagePaths;
 		std::vector<std::string> rgbImagePaths;
+		std::vector<std::string> timestampList;
 
 		size_t imageCount() const;
 
 	public:
-		ImageListPathGenerator(const std::vector<std::string>& rgbImagePaths_, const std::vector<std::string>& depthImagePaths_);
+		ImageListPathGenerator(const std::vector<std::string>& timestampList_, const std::vector<std::string>& rgbImagePaths_, const std::vector<std::string>& depthImagePaths_);
+		std::string getTimeStamp(size_t currentFrameNo) const;
 		std::string getRgbImagePath(size_t currentFrameNo) const;
 		std::string getDepthImagePath(size_t currentFrameNo) const;
 
