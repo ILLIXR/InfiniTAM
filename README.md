@@ -1,5 +1,48 @@
 # InfiniTAM v3
 
+# 0. Customized Version Usage -- Boyuan Tian
+
+### 0.0 CMakeLists
+
+  - DICP: Turn on when running InfiniTAM with ICP. Turn off when running InfiniTAM with loaded pose(ITM-BE) only.
+
+  - DVCU: Turn on when running VCU dataset only. Extrinsic transformation included.
+
+  - DDEBUG: Turn on for verbose debug prints.
+
+### 0.1 Associated Files
+
+Create a folder named ```associated``` at the same level at color/depth images' folder.
+
+Please check the folder named ```samples``` for details.
+
+  - ITM-ICP: timestamp, depth image, timestamp, color image.
+
+  - ITM-BE: timestamp, tx, ty, tz, rx, ry, rz, rw, timestamp, depth image, timestamp, color image.
+
+### 0.2 Hardcoded Codes
+
+  - ITMLib/Core/ITMBasicEngine.tpp: Ln 151, 152, 154 for output poses and meshes. They will be overwritten after every run.
+
+  - Apps/InfiniTAM/InfiniTAM.cpp: Ln 133, 134 to handle the folder structure of associated files.
+
+  - Apps/InfiniTAM_cli/InfiniTAM_cli.cpp: Ln 57, 58. Same as above.
+
+### 0.3 Sample Commands
+  - InfiniTAM with ICP: Open ```CMakeLists``` and turn on ```-DICP```.
+```
+	$ cd scripts/InfiniTAM/
+	$ ./ETH3D.sh <seq_file>
+```
+
+  - InfiniTAM without ICP: Open ```CMakeLists``` and turn off ```-DICP```
+```
+	$ cd scripts/InfiniTAM-BE/
+	$ ./ETH3D.sh <seq_file> <pose_file>
+```
+
+---
+
 This is the main branch of the software bundle "InfiniTAM", the current version is actively maintained by:
 
   Victor Adrian Prisacariu <victor@robots.ox.ac.uk>  
