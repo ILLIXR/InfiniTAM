@@ -16,8 +16,8 @@ typedef ITMLib::ITMSurfel_rgb ITMSurfelT;
     options are ITMVoxel_s, ITMVoxel_f, ITMVoxel_s_rgb and ITMVoxel_f_rgb.
 */
 // bytian: change ITMVoxel_s to ITMVoxel_f for higher precision when necessary.
-typedef ITMVoxel_s ITMVoxel;
-// typedef ITMVoxel_s_rgb ITMVoxel;
+// typedef ITMVoxel_s ITMVoxel;
+typedef ITMVoxel_s_rgb ITMVoxel;
 
 /** This chooses the way the voxels are addressed and indexed. At the moment,
     valid options are ITMVoxelBlockHash and ITMPlainVoxelArray.

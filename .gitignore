@@ -20,3 +20,4 @@ x64/
 CMakeLists.txt.user*
 
 InfiniTAM/scripts/InfiniTAM/ITM-ICP-Pose.txt
+InfiniTAM/scripts/InfiniTAM-BE/ITM-ICP-Pose.txt

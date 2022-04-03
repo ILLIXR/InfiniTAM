@@ -149,9 +149,11 @@ ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 #ifdef ICP
 	// bytian: default output files
 	this->dumpPoseQuat("ITM-ICP-Pose.txt");
-	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-ICP.stl");
+	// this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-ICP.stl");
+	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-ICP.obj");
 #else
-	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-BE.stl");
+	// this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-BE.stl");
+	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-BE.obj");
 #endif
 
 	delete renderState_live;
@@ -187,7 +189,8 @@ void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 	ITMMesh *mesh = new ITMMesh(settings->GetMemoryType());
 
 	meshingEngine->MeshScene(mesh, scene);
-	mesh->WriteSTL(objFileName);
+	// mesh->WriteSTL(objFileName);
+	mesh->WriteOBJ(objFileName);
 
 	delete mesh;
 	std::cout << "Mesh is written to " << objFileName << std::endl;
