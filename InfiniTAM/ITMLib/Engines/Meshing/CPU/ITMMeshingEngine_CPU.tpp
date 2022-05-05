@@ -29,18 +29,20 @@ void ITMMeshingEngine_CPU<TVoxel, ITMVoxelBlockHash>::MeshScene(ITMMesh *mesh, c
 		for (int z = 0; z < SDF_BLOCK_SIZE; z++) for (int y = 0; y < SDF_BLOCK_SIZE; y++) for (int x = 0; x < SDF_BLOCK_SIZE; x++)
 		{
 			Vector3f vertList[12];
-			int cubeIndex = buildVertList(vertList, globalPos, Vector3i(x, y, z), localVBA, hashTable);
+			Vector3f colorList[12];
+			int cubeIndex = buildVertList(vertList, colorList, globalPos, Vector3i(x, y, z), localVBA, hashTable);
 			
 			if (cubeIndex < 0) continue;
-
-			Vector3f clr = VoxelColorReader<TVoxel::hasColorInformation, TVoxel, ITMVoxelBlockHash>::uninterpolate(localVBA, hashTable, globalPos + Vector3i(x, y, z));
 
 			for (int i = 0; triangleTable[cubeIndex][i] != -1; i += 3)
 			{
 				triangles[noTriangles].p0 = vertList[triangleTable[cubeIndex][i]] * factor;
 				triangles[noTriangles].p1 = vertList[triangleTable[cubeIndex][i + 1]] * factor;
 				triangles[noTriangles].p2 = vertList[triangleTable[cubeIndex][i + 2]] * factor;
-				triangles[noTriangles].clr = clr;
+
+				triangles[noTriangles].clr0 = colorList[triangleTable[cubeIndex][i]];
+				triangles[noTriangles].clr1 = colorList[triangleTable[cubeIndex][i + 1]];
+				triangles[noTriangles].clr2 = colorList[triangleTable[cubeIndex][i + 2]];
 
 				if (noTriangles < noMaxTriangles - 1) noTriangles++;
 			}

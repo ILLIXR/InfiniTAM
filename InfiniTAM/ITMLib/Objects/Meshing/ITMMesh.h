@@ -12,8 +12,7 @@ namespace ITMLib
 	class ITMMesh
 	{
 	public:
-		// struct Triangle { Vector3f p0, p1, p2; };
-		struct Triangle { Vector3f p0, p1, p2, clr; };
+		struct Triangle { Vector3f p0, p1, p2, clr0, clr1, clr2; };
 
 		MemoryDeviceType memoryType;
 
@@ -35,12 +34,12 @@ namespace ITMLib
 
 		void WriteOBJ(const char *fileName)
 		{
-			ORUtils::MemoryBlock<Triangle> *cpu_triangles; bool shoulDelete = false;
+			ORUtils::MemoryBlock<Triangle> *cpu_triangles; bool shouldDelete = false;
 			if (memoryType == MEMORYDEVICE_CUDA)
 			{
 				cpu_triangles = new ORUtils::MemoryBlock<Triangle>(noMaxTriangles, MEMORYDEVICE_CPU);
 				cpu_triangles->SetFrom(triangles, ORUtils::MemoryBlock<Triangle>::CUDA_TO_CPU);
-				shoulDelete = true;
+				shouldDelete = true;
 			}
 			else cpu_triangles = triangles;
 
@@ -51,21 +50,16 @@ namespace ITMLib
 			{
 				for (uint i = 0; i < noTotalTriangles; i++)
 				{
-					// fprintf(f, "v %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y, triangleArray[i].p0.z);
-					// fprintf(f, "v %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y, triangleArray[i].p1.z);
-					// fprintf(f, "v %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y, triangleArray[i].p2.z);
-
-					const Vector3f clr = triangleArray[i].clr;
-					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y, triangleArray[i].p0.z, clr.r, clr.g, clr.b);
-					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y, triangleArray[i].p1.z, clr.r, clr.g, clr.b);
-					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y, triangleArray[i].p2.z, clr.r, clr.g, clr.b);
+					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y, triangleArray[i].p0.z, triangleArray[i].clr0.r, triangleArray[i].clr0.g, triangleArray[i].clr0.b);
+					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y, triangleArray[i].p1.z, triangleArray[i].clr1.r, triangleArray[i].clr1.g, triangleArray[i].clr1.b);
+					fprintf(f, "v %f %f %f %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y, triangleArray[i].p2.z, triangleArray[i].clr2.r, triangleArray[i].clr2.g, triangleArray[i].clr2.b);
 				}
 
 				for (uint i = 0; i<noTotalTriangles; i++) fprintf(f, "f %d %d %d\n", i * 3 + 2 + 1, i * 3 + 1 + 1, i * 3 + 0 + 1);
 				fclose(f);
 			}
 
-			if (shoulDelete) delete cpu_triangles;
+			if (shouldDelete) delete cpu_triangles;
 		}
 
 		void WriteSTL(const char *fileName)

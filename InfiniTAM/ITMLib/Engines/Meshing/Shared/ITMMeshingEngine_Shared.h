@@ -150,41 +150,66 @@ static const _CPU_AND_GPU_CONSTANT_ int triangleTable[256][16] = { { -1, -1, -1,
 { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 } };
 
 template<class TVoxel>
-_CPU_AND_GPU_CODE_ inline bool findPointNeighbors(THREADPTR(Vector3f) *p, THREADPTR(float) *sdf, Vector3i blockLocation, const CONSTPTR(TVoxel) *localVBA, 
+_CPU_AND_GPU_CODE_ inline bool findPointNeighbors(THREADPTR(Vector3f) *p, THREADPTR(Vector3f) *color, THREADPTR(float) *sdf, Vector3i blockLocation, const CONSTPTR(TVoxel) *localVBA,
 	const CONSTPTR(ITMHashEntry) *hashTable)
 {
 	int vmIndex; Vector3i localBlockLocation;
+	TVoxel voxel;
 
-	localBlockLocation = blockLocation + Vector3i(0, 0, 0); p[0] = localBlockLocation.toFloat();
-	sdf[0] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(0, 0, 0);
+	p[0] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[0] = TVoxel::valueToFloat(voxel.sdf);
+	color[0] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[0] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(1, 0, 0); p[1] = localBlockLocation.toFloat();
-	sdf[1] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(1, 0, 0);
+	p[1] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[1] = TVoxel::valueToFloat(voxel.sdf);
+	color[1] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[1] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(1, 1, 0); p[2] = localBlockLocation.toFloat();
-	sdf[2] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(1, 1, 0);
+	p[2] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[2] = TVoxel::valueToFloat(voxel.sdf);
+	color[2] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[2] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(0, 1, 0); p[3] = localBlockLocation.toFloat();
-	sdf[3] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(0, 1, 0);
+	p[3] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[3] = TVoxel::valueToFloat(voxel.sdf);
+	color[3] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[3] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(0, 0, 1); p[4] = localBlockLocation.toFloat();
-	sdf[4] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(0, 0, 1);
+	p[4] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[4] = TVoxel::valueToFloat(voxel.sdf);
+	color[4] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[4] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(1, 0, 1); p[5] = localBlockLocation.toFloat();
-	sdf[5] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(1, 0, 1);
+	p[5] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[5] = TVoxel::valueToFloat(voxel.sdf);
+	color[5] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[5] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(1, 1, 1); p[6] = localBlockLocation.toFloat();
-	sdf[6] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(1, 1, 1);
+	p[6] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[6] = TVoxel::valueToFloat(voxel.sdf);
+	color[6] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[6] == 1.0f) return false;
 
-	localBlockLocation = blockLocation + Vector3i(0, 1, 1); p[7] = localBlockLocation.toFloat();
-	sdf[7] = TVoxel::valueToFloat(readVoxel(localVBA, hashTable, localBlockLocation, vmIndex).sdf);
+	localBlockLocation = blockLocation + Vector3i(0, 1, 1);
+	p[7] = localBlockLocation.toFloat();
+	voxel = readVoxel(localVBA, hashTable, localBlockLocation, vmIndex);
+	sdf[7] = TVoxel::valueToFloat(voxel.sdf);
+	color[7] = voxel.clr.toFloat();
 	if (!vmIndex || sdf[7] == 1.0f) return false;
 
 	return true;
@@ -200,11 +225,13 @@ _CPU_AND_GPU_CODE_ inline Vector3f sdfInterp(const THREADPTR(Vector3f) &p1, cons
 }
 
 template<class TVoxel>
-_CPU_AND_GPU_CODE_ inline int buildVertList(THREADPTR(Vector3f) *vertList, Vector3i globalPos, Vector3i localPos, const CONSTPTR(TVoxel) *localVBA, const CONSTPTR(ITMHashEntry) *hashTable)
+_CPU_AND_GPU_CODE_ inline int buildVertList(THREADPTR(Vector3f) *vertList, THREADPTR(Vector3f) *colorList, Vector3i globalPos, Vector3i localPos, const CONSTPTR(TVoxel) *localVBA, const CONSTPTR(ITMHashEntry) *hashTable)
 {
-	Vector3f points[8]; float sdfVals[8];
+	Vector3f points[8];
+	Vector3f colors[8];
+	float sdfVals[8];
 
-	if (!findPointNeighbors(points, sdfVals, globalPos + localPos, localVBA, hashTable)) return -1;
+	if (!findPointNeighbors(points, colors, sdfVals, globalPos + localPos, localVBA, hashTable)) return -1;
 
 	int cubeIndex = 0;
 	if (sdfVals[0] < 0) cubeIndex |= 1; if (sdfVals[1] < 0) cubeIndex |= 2;
@@ -214,18 +241,77 @@ _CPU_AND_GPU_CODE_ inline int buildVertList(THREADPTR(Vector3f) *vertList, Vecto
 
 	if (edgeTable[cubeIndex] == 0) return -1;
 
-	if (edgeTable[cubeIndex] & 1) vertList[0] = sdfInterp(points[0], points[1], sdfVals[0], sdfVals[1]);
-	if (edgeTable[cubeIndex] & 2) vertList[1] = sdfInterp(points[1], points[2], sdfVals[1], sdfVals[2]);
-	if (edgeTable[cubeIndex] & 4) vertList[2] = sdfInterp(points[2], points[3], sdfVals[2], sdfVals[3]);
-	if (edgeTable[cubeIndex] & 8) vertList[3] = sdfInterp(points[3], points[0], sdfVals[3], sdfVals[0]);
-	if (edgeTable[cubeIndex] & 16) vertList[4] = sdfInterp(points[4], points[5], sdfVals[4], sdfVals[5]);
-	if (edgeTable[cubeIndex] & 32) vertList[5] = sdfInterp(points[5], points[6], sdfVals[5], sdfVals[6]);
-	if (edgeTable[cubeIndex] & 64) vertList[6] = sdfInterp(points[6], points[7], sdfVals[6], sdfVals[7]);
-	if (edgeTable[cubeIndex] & 128) vertList[7] = sdfInterp(points[7], points[4], sdfVals[7], sdfVals[4]);
-	if (edgeTable[cubeIndex] & 256) vertList[8] = sdfInterp(points[0], points[4], sdfVals[0], sdfVals[4]);
-	if (edgeTable[cubeIndex] & 512) vertList[9] = sdfInterp(points[1], points[5], sdfVals[1], sdfVals[5]);
-	if (edgeTable[cubeIndex] & 1024) vertList[10] = sdfInterp(points[2], points[6], sdfVals[2], sdfVals[6]);
-	if (edgeTable[cubeIndex] & 2048) vertList[11] = sdfInterp(points[3], points[7], sdfVals[3], sdfVals[7]);
+	if (edgeTable[cubeIndex] & 1)
+	{
+		vertList[0] = sdfInterp(points[0], points[1], sdfVals[0], sdfVals[1]);
+		colorList[0] = sdfInterp(colors[0], colors[1], sdfVals[0], sdfVals[1]);
+	}
+
+	if (edgeTable[cubeIndex] & 2)
+	{
+		vertList[1] = sdfInterp(points[1], points[2], sdfVals[1], sdfVals[2]);
+		colorList[1] = sdfInterp(colors[1], colors[2], sdfVals[1], sdfVals[2]);
+	}
+
+	if (edgeTable[cubeIndex] & 4)
+	{
+		vertList[2] = sdfInterp(points[2], points[3], sdfVals[2], sdfVals[3]);
+		colorList[2] = sdfInterp(colors[2], colors[3], sdfVals[2], sdfVals[3]);
+	}
+
+	if (edgeTable[cubeIndex] & 8)
+	{
+		vertList[3] = sdfInterp(points[3], points[0], sdfVals[3], sdfVals[0]);
+		colorList[3] = sdfInterp(colors[3], colors[0], sdfVals[3], sdfVals[0]);
+	}
+
+	if (edgeTable[cubeIndex] & 16)
+	{
+		vertList[4] = sdfInterp(points[4], points[5], sdfVals[4], sdfVals[5]);
+		colorList[4] = sdfInterp(colors[4], colors[5], sdfVals[4], sdfVals[5]);
+	}
+
+	if (edgeTable[cubeIndex] & 32)
+	{
+		vertList[5] = sdfInterp(points[5], points[6], sdfVals[5], sdfVals[6]);
+		colorList[5] = sdfInterp(colors[5], colors[6], sdfVals[5], sdfVals[6]);
+	}
+
+	if (edgeTable[cubeIndex] & 64)
+	{
+		vertList[6] = sdfInterp(points[6], points[7], sdfVals[6], sdfVals[7]);
+		colorList[6] = sdfInterp(colors[6], colors[7], sdfVals[6], sdfVals[7]);
+	}
+
+	if (edgeTable[cubeIndex] & 128)
+	{
+		vertList[7] = sdfInterp(points[7], points[4], sdfVals[7], sdfVals[4]);
+		colorList[7] = sdfInterp(colors[7], colors[4], sdfVals[7], sdfVals[4]);
+	}
+
+	if (edgeTable[cubeIndex] & 256)
+	{
+		vertList[8] = sdfInterp(points[0], points[4], sdfVals[0], sdfVals[4]);
+		colorList[8] = sdfInterp(colors[0], colors[4], sdfVals[0], sdfVals[4]);
+	}
+
+	if (edgeTable[cubeIndex] & 512)
+	{
+		vertList[9] = sdfInterp(points[1], points[5], sdfVals[1], sdfVals[5]);
+		colorList[9] = sdfInterp(colors[1], colors[5], sdfVals[1], sdfVals[5]);
+	}
+
+	if (edgeTable[cubeIndex] & 1024)
+	{
+		vertList[10] = sdfInterp(points[2], points[6], sdfVals[2], sdfVals[6]);
+		colorList[10] = sdfInterp(colors[2], colors[6], sdfVals[2], sdfVals[6]);
+	}
+
+	if (edgeTable[cubeIndex] & 2048)
+	{
+		vertList[11] = sdfInterp(points[3], points[7], sdfVals[3], sdfVals[7]);
+		colorList[11] = sdfInterp(colors[3], colors[7], sdfVals[3], sdfVals[7]);
+	}
 
 	return cubeIndex;
 }

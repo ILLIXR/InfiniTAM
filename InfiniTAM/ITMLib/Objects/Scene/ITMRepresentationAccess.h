@@ -463,11 +463,6 @@ struct VoxelColorReader<false, TVoxel, TIndex> {
 	{
 		return Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
 	}
-
-	_CPU_AND_GPU_CODE_ static Vector4f uninterpolate(const CONSTPTR(TVoxel) *voxelData, const CONSTPTR(typename TIndex::IndexData) *voxelIndex, const THREADPTR(Vector3i) &point)
-	{
-		return Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
-	}
 };
 
 template<class TVoxel, class TIndex>
@@ -477,18 +472,6 @@ struct VoxelColorReader<true, TVoxel, TIndex> {
 	{
 		typename TIndex::IndexCache cache;
 		return readFromSDF_color4u_interpolated(voxelData, voxelIndex, point, cache);
-	}
-
-	_CPU_AND_GPU_CODE_ static Vector3f uninterpolate(const CONSTPTR(TVoxel) *voxelData, const CONSTPTR(typename TIndex::IndexData) *voxelIndex, const THREADPTR(Vector3i) &point)
-	{
-		typename TIndex::IndexCache cache;
-		int vmIndex;
-		TVoxel resn = readVoxel(voxelData, voxelIndex, point, vmIndex, cache);
-
-		if (vmIndex)
-			return Vector3f(resn.clr.r / 255.0f, resn.clr.g / 255.0f, resn.clr.b / 255.0f);
-		else
-			return Vector3f(0.0f, 0.0f, 0.0f);
 	}
 };
 
