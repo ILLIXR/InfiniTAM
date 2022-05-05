@@ -186,7 +186,12 @@ void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 {
 	if (meshingEngine == NULL) return;
 
-	ITMMesh *mesh = new ITMMesh(settings->GetMemoryType());
+	const int allocatedBricks = ((ITMRenderState_VH *) renderState_live)->noVisibleEntries;
+	ITMMesh *mesh = new ITMMesh(settings->GetMemoryType(), allocatedBricks * SDF_BLOCK_SIZE3);
+
+#ifdef DEBUG
+	std::cout << "[DEBUG] Generating mesh for " << allocatedBricks << " bricks (" << allocatedBricks * SDF_BLOCK_SIZE3 << " voxels)\n";
+#endif
 
 	meshingEngine->MeshScene(mesh, scene);
 	// mesh->WriteSTL(objFileName);
@@ -413,8 +418,8 @@ void ITMBasicEngine<TVoxel,TIndex>::loadPoseQuat(const char *filename)
 
 #ifdef DEBUG
 		std::cout << "[DEBUG] Loading: ";
-		for (int idx = 0; idx < pose.size(); idx++)
-			std::cout << pose[idx] << " ";
+		for (auto val : pose)
+			std::cout << val << " ";
 		std::cout << std::endl;
 #endif
 
@@ -468,8 +473,8 @@ template <typename TVoxel, typename TIndex>
 void ITMBasicEngine<TVoxel,TIndex>::Quaternion2Matrix(std::vector<double> &in_pose, ORUtils::Matrix4<float> &out_pose)
 {
 	std::cout << "Loaded pose: ";
-	for (int i=0; i<in_pose.size(); i++)
-		std::cout << in_pose[i] << " ";
+	for (auto val : in_pose)
+		std::cout << val << " ";
 	std::cout << std::endl;
 
 	Eigen::Quaternionf quat;

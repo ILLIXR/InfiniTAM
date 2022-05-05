@@ -20,8 +20,16 @@ using namespace ITMLib;
 void list2vec(std::string filename, std::vector<std::string> &time_list, std::vector<std::string> &color_image, std::vector<std::string> &depth_image)
 {
         std::ifstream file;
-        file.open(filename);
         std::string line;
+        file.open(filename);
+
+        // Confirm that we can open the file
+        if (!file.good())
+        {
+                std::cerr << "[Error] Cannot open " << filename << "\n";
+                std::cerr << "[Error] Is the path correct?\n";
+                exit(1);
+        }
 
         std::vector<std::string> output;
         std::vector<double> pose_value;

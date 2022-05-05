@@ -17,6 +17,7 @@
 #include <device_launch_parameters.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef _WIN32
 #  define WINDOWS_LEAN_AND_MEAN
@@ -33,7 +34,7 @@ inline void __cudaSafeCall( cudaError err, const char *file, const int line )
     if( cudaSuccess != err) {
 		printf("%s(%i) : cudaSafeCall() Runtime API error : %s.\n",
                 file, line, cudaGetErrorString(err) );
-        exit(-1);
+        abort();
     }
 }
 

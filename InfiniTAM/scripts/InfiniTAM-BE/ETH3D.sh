@@ -13,6 +13,7 @@ echo ""
 if [ -z "$seq" ]
 then
 	echo "[Error] !!! \$seq is empty, please set the sequence name !!!"
+	exit 0
 fi
 
 # Sequence fully associated with specified pose 

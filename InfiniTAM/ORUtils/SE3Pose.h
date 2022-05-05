@@ -88,6 +88,7 @@ namespace ORUtils
 		explicit SE3Pose(const float pose[6]);
 
 		SE3Pose(void);
+		SE3Pose & operator=(const SE3Pose & src);
 
 		friend std::ostream& operator<<(std::ostream& os, const SE3Pose& dt) {
 			os << dt.M;

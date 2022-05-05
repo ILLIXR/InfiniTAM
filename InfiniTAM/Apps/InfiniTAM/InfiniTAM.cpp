@@ -30,8 +30,16 @@ void list2vec(std::string filename, std::vector<std::string> &time_list, std::ve
 		double timestamp = 0.0;
 
         std::ifstream file;
-        file.open(filename);
         std::string line;
+        file.open(filename);
+
+        // Confirm that we can open the file
+        if (!file.good())
+        {
+                std::cerr << "[Error] Cannot open " << filename << "\n";
+                std::cerr << "[Error] Is the path correct?\n";
+                exit(1);
+        }
 
         std::vector<std::string> output;
 
