@@ -458,12 +458,10 @@ void ITMBasicEngine<TVoxel,TIndex>::Matrix2Quaternion(ORUtils::SE3Pose &in_pose)
 	QuaternionFromRotationMatrix(R, q);
 
 	// TUM order: timestamp, tx, ty, tz, rx, ry, rz, rw
-	int num_element = 8;
-	double array_pose[num_element] = {std::stod(this->currentTimeStamp.c_str()), t[0], t[1], t[2], q[1], q[2], q[3], q[0]};
-	std::vector<double> out_pose(array_pose, array_pose + num_element);
+	std::vector<double> out_pose = {std::stod(this->currentTimeStamp.c_str()), t[0], t[1], t[2], q[1], q[2], q[3], q[0]};
 	this->seq_pose.push(out_pose);
 
-	fprintf(stderr, "Estimated pose: %f %f %f %f %f %f %f %f\n", array_pose[0], t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
+	fprintf(stderr, "Estimated pose: %f %f %f %f %f %f %f %f\n", out_pose[0], t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
 }
 
 template <typename TVoxel, typename TIndex>
@@ -542,7 +540,7 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 
 	std::cout << "[DEBUG] Before applying extrinsic matrix: " << std::endl;
 	printMatrix(trackPose);
-#endif
+#endif // End of DEBUG
 
 	Matrix2Quaternion(trackPose);
 
@@ -555,7 +553,7 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	// std::cout << "before ry: " << trackingState->pose_d->params.each.ry << std::endl;
 	// std::cout << "before rz: " << trackingState->pose_d->params.each.rz << std::endl;
 	// std::cout << std::endl;
-#endif
+#endif // End of DEBUG
 
 #else // Use loaded pose
 	std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;

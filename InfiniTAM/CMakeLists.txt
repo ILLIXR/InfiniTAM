@@ -5,9 +5,15 @@
 cmake_minimum_required(VERSION 2.8)
 
 PROJECT(InfiniTAM)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
+
+# Prefer GLVND
+if (POLICY CMP0072)
+  cmake_policy (SET CMP0072 NEW)
+endif(POLICY CMP0072)
 
 #################################
 # Specify the CMake module path #
