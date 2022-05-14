@@ -268,6 +268,65 @@ _CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePP(DEVICEPTR(uchar) *
 	}
 }
 
+// Unlike the above function, this function only checks the brick that contains the depth point (and not all the points along depth +/- mu) for visibility
+_CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePointOnly(DEVICEPTR(uchar) *entriesAllocType, DEVICEPTR(uchar) *entriesVisibleType, int x, int y,
+	DEVICEPTR(Vector4s) *blockCoords, const CONSTPTR(float) *depth, Matrix4f invM_d, Vector4f projParams_d, float mu, Vector2i imgSize,
+	float oneOverVoxelSize, const CONSTPTR(ITMHashEntry) *hashTable, float viewFrustum_min, float viewFrustum_max)
+{
+	float depthMeasure = depth[x + y * imgSize.x];
+	if (depthMeasure <= 0 || (depthMeasure - mu) < 0 || (depthMeasure - mu) < viewFrustum_min || (depthMeasure + mu) > viewFrustum_max)
+		return;
+
+	// Project point from depth image to 3D space
+	Vector4f cameraPoint;
+	cameraPoint.z = depthMeasure;
+	cameraPoint.x = cameraPoint.z * ((float(x) - projParams_d.z) * projParams_d.x);
+	cameraPoint.y = cameraPoint.z * ((float(y) - projParams_d.w) * projParams_d.y);
+
+	// TODO: implement dithering
+	float norm = sqrt(cameraPoint.x * cameraPoint.x + cameraPoint.y * cameraPoint.y + cameraPoint.z * cameraPoint.z);
+	float dither = 0.0f / norm;
+	Vector4f ditheredPoint = cameraPoint * (1.0f + dither);
+	ditheredPoint.w = 1.0f;
+
+	// Calculate brick coordinate from point coordinate
+	Vector3f point = TO_VECTOR3(invM_d * ditheredPoint) * oneOverVoxelSize;
+	Vector3s blockPos = TO_SHORT_FLOOR3(point);
+
+	// Look up hash entry
+	int hashIdx = hashIndex(blockPos);
+	ITMHashEntry hashEntry = hashTable[hashIdx];
+
+	// Found
+	if (IS_EQUAL3(hashEntry.pos, blockPos) && hashEntry.ptr >= -1) {
+		entriesVisibleType[hashIdx] = (hashEntry.ptr == -1) ? 2 : 1;
+		return;
+	}
+
+	// Search excess list
+	bool isExcess = false;
+	if (hashEntry.ptr >= -1) {
+		while (hashEntry.offset >= 1) {
+			hashIdx = SDF_BUCKET_NUM + hashEntry.offset - 1;
+			hashEntry = hashTable[hashIdx];
+			if (IS_EQUAL3(hashEntry.pos, blockPos) && hashEntry.ptr >= -1) {
+				entriesVisibleType[hashIdx] = (hashEntry.ptr == -1) ? 2 : 1;
+				return;
+			}
+		}
+
+		isExcess = true;
+	}
+
+	// Not found, needs allocation
+	entriesAllocType[hashIdx] = isExcess ? 2 : 1;
+	if (!isExcess) {
+		entriesVisibleType[hashIdx] = 1;
+	}
+
+	blockCoords[hashIdx] = Vector4s(blockPos.x, blockPos.y, blockPos.z, 1);
+}
+
 template<bool useSwapping>
 _CPU_AND_GPU_CODE_ inline void checkPointVisibility(THREADPTR(bool) &isVisible, THREADPTR(bool) &isVisibleEnlarged,
 	const THREADPTR(Vector4f) &pt_image, const CONSTPTR(Matrix4f) & M_d, const CONSTPTR(Vector4f) &projParams_d,

@@ -19,5 +19,11 @@ x64/
 # QtCreator CMake
 CMakeLists.txt.user*
 
+# Outputs
 InfiniTAM/scripts/InfiniTAM/ITM-ICP-Pose.txt
+InfiniTAM/scripts/InfiniTAM/ITM-ICP.obj
 InfiniTAM/scripts/InfiniTAM-BE/ITM-ICP-Pose.txt
+InfiniTAM/scripts/InfiniTAM-BE/ITM-BE.obj
+
+# VS Code
+InfiniTAM/.vscode/

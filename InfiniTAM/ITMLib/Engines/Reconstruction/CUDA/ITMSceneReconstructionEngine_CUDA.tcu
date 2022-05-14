@@ -105,6 +105,10 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::AllocateScene
 
 	if (resetVisibleList) renderState_vh->noVisibleEntries = 0;
 
+#ifdef NOVISLIST
+	renderState_vh->Reset();
+#endif
+
 	M_d = trackingState->pose_d->GetM(); M_d.inv(invM_d);
 
 	projParams_d = view->calib.intrinsics_d.projectionParamsSimple.all;
@@ -223,6 +227,10 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::IntegrateInto
 
 	dim3 cudaBlockSize(SDF_BLOCK_SIZE, SDF_BLOCK_SIZE, SDF_BLOCK_SIZE);
 	dim3 gridSize(renderState_vh->noVisibleEntries);
+
+#ifdef DEBUG
+	std::cout << "[DEBUG] Visible bricks: " << gridSize.x << "\n";
+#endif
 
 	if (scene->sceneParams->stopIntegratingAtMaxW)
 	{
@@ -371,8 +379,13 @@ __global__ void buildHashAllocAndVisibleType_device(uchar *entriesAllocType, uch
 
 	if (x > _imgSize.x - 1 || y > _imgSize.y - 1) return;
 
+#ifdef CHECKPOINT
+	buildHashAllocAndVisibleTypePointOnly(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
+		projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
+#else
 	buildHashAllocAndVisibleTypePP(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
 		projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
+#endif
 }
 
 __global__ void setToType3(uchar *entriesVisibleType, int *visibleEntryIDs, int noVisibleEntries)

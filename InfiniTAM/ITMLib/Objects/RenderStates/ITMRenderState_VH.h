@@ -60,6 +60,13 @@ namespace ITMLib
 		*/
 		uchar *GetEntriesVisibleType(void) { return entriesVisibleType->GetData(memoryType); }
 
+		/** Clear visibility list */
+		void Reset()
+		{
+			visibleEntryIDs->Clear();
+			entriesVisibleType->Clear();
+		}
+
 #ifdef COMPILE_WITH_METAL
 		const void* GetVisibleEntryIDs_MB(void) { return visibleEntryIDs->GetMetalBuffer(); }
 		const void* GetEntriesVisibleType_MB(void) { return entriesVisibleType->GetMetalBuffer(); }

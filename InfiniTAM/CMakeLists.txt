@@ -52,7 +52,12 @@ ENDIF()
 # ADD_DEFINITIONS(-DVCU)
 
 # Verbose debug prints
-# ADD_DEFINITIONS(-DDEBUG)
+
+# Algorithmic approximation 1: check depth point instead of depth ray
+# ADD_DEFINITIONS(-DCHECKPOINT)
+
+# Algorithmic approximation 2: do not check previous frame's visible bricks
+# ADD_DEFINITIONS(-DNOVISLIST)
 
 ######################
 # Add subdirectories #

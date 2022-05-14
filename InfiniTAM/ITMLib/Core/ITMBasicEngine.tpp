@@ -186,15 +186,15 @@ void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 {
 	if (meshingEngine == NULL) return;
 
-	const int allocatedBricks = ((ITMRenderState_VH *) renderState_live)->noVisibleEntries;
-	ITMMesh *mesh = new ITMMesh(settings->GetMemoryType(), allocatedBricks * SDF_BLOCK_SIZE3);
+	const int allocatedBricks = scene->index.getNumAllocatedVoxelBlocks() - scene->localVBA.lastFreeBlockId - 1;
+	const int allocatedVoxels = allocatedBricks * SDF_BLOCK_SIZE3;
 
 #ifdef DEBUG
-	std::cout << "[DEBUG] Generating mesh for " << allocatedBricks << " bricks (" << allocatedBricks * SDF_BLOCK_SIZE3 << " voxels)\n";
+	std::cout << "[DEBUG] Generating mesh for " << allocatedBricks << " bricks (" << allocatedVoxels << " voxels)\n";
 #endif
 
+	ITMMesh *mesh = new ITMMesh(settings->GetMemoryType(), allocatedVoxels);
 	meshingEngine->MeshScene(mesh, scene);
-	// mesh->WriteSTL(objFileName);
 	mesh->WriteOBJ(objFileName);
 
 	delete mesh;
