@@ -4,33 +4,101 @@
 
 template<class T>
 inline __device__ void warpReduce(volatile T* sdata, int tid) {
-	sdata[tid] += sdata[tid + 32];
-	sdata[tid] += sdata[tid + 16];
-	sdata[tid] += sdata[tid + 8];
-	sdata[tid] += sdata[tid + 4];
-	sdata[tid] += sdata[tid + 2];
-	sdata[tid] += sdata[tid + 1];
+	T val = sdata[tid];
+	__syncwarp();
+
+	// In each iteration, read + add, sync, write, sync
+	val += sdata[tid + 32];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
+
+	val += sdata[tid + 16];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
+
+	val += sdata[tid + 8];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
+
+	val += sdata[tid + 4];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
+
+	val += sdata[tid + 2];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
+
+	val += sdata[tid + 1];
+	__syncwarp();
+	sdata[tid] = val;
+	__syncwarp();
 }
 
 inline __device__ void warpReduce3(volatile float* sdata, int tid) {
-	sdata[3*tid+0] += sdata[3*(tid + 32)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 32)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 32)+2];
-	sdata[3*tid+0] += sdata[3*(tid + 16)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 16)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 16)+2];
-	sdata[3*tid+0] += sdata[3*(tid + 8)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 8)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 8)+2];
-	sdata[3*tid+0] += sdata[3*(tid + 4)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 4)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 4)+2];
-	sdata[3*tid+0] += sdata[3*(tid + 2)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 2)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 2)+2];
-	sdata[3*tid+0] += sdata[3*(tid + 1)+0];
-	sdata[3*tid+1] += sdata[3*(tid + 1)+1];
-	sdata[3*tid+2] += sdata[3*(tid + 1)+2];
+	float val1 = sdata[(3 * tid) + 0];
+	float val2 = sdata[(3 * tid) + 1];
+	float val3 = sdata[(3 * tid) + 2];
+	__syncwarp();
+
+	// In each iteration, read + add, sync, write, sync
+	val1 += sdata[3 * (tid + 32) + 0];
+	val2 += sdata[3 * (tid + 32) + 1];
+	val3 += sdata[3 * (tid + 32) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
+
+	val1 += sdata[3 * (tid + 16) + 0];
+	val2 += sdata[3 * (tid + 16) + 1];
+	val3 += sdata[3 * (tid + 16) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
+
+	val1 += sdata[3 * (tid + 8) + 0];
+	val2 += sdata[3 * (tid + 8) + 1];
+	val3 += sdata[3 * (tid + 8) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
+
+	val1 += sdata[3 * (tid + 4) + 0];
+	val2 += sdata[3 * (tid + 4) + 1];
+	val3 += sdata[3 * (tid + 4) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
+
+	val1 += sdata[3 * (tid + 2) + 0];
+	val2 += sdata[3 * (tid + 2) + 1];
+	val3 += sdata[3 * (tid + 2) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
+
+	val1 += sdata[3 * (tid + 1) + 0];
+	val2 += sdata[3 * (tid + 1) + 1];
+	val3 += sdata[3 * (tid + 1) + 2];
+	__syncwarp();
+	sdata[(3 * tid) + 0] = val1;
+	sdata[(3 * tid) + 1] = val2;
+	sdata[(3 * tid) + 2] = val3;
+	__syncwarp();
 }
 
 template <typename T> 
