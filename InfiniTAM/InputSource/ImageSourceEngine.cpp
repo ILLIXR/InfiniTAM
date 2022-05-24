@@ -109,9 +109,9 @@ ImageFileReader<PathGenerator>::~ImageFileReader()
 template <typename PathGenerator>
 void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 {
-	printf("Loading images ... \n");
 	if (currentFrameNo == cachedFrameNo) return;
 	cachedFrameNo = currentFrameNo;
+	printf("Loading images ... \n");
 
 	cacheIsValid = true;
 
@@ -137,6 +137,7 @@ void ImageFileReader<PathGenerator>::loadIntoCache(void) const
 
 	currentTimeStamp = pathGenerator.getTimeStamp(currentFrameNo);
 	std::cout << "Current timestamp: " << currentTimeStamp << std::endl;
+	std::cout << "Current frame: " << currentFrameNo << std::endl;
 }
 
 template <typename PathGenerator>
@@ -147,6 +148,12 @@ bool ImageFileReader<PathGenerator>::hasMoreImages(void) const
 #endif
 	loadIntoCache();
 	return cacheIsValid;
+}
+
+template <typename PathGenerator>
+void ImageFileReader<PathGenerator>::skipImage(void)
+{
+    ++currentFrameNo;
 }
 
 template <typename PathGenerator>

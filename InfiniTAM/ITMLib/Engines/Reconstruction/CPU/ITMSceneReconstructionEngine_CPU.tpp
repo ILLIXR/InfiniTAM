@@ -7,7 +7,7 @@
 using namespace ITMLib;
 
 template<class TVoxel>
-ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>::ITMSceneReconstructionEngine_CPU(void) 
+ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>::ITMSceneReconstructionEngine_CPU(void)
 {
 	int noTotalEntries = ITMVoxelBlockHash::noTotalEntries;
 	entriesAllocType = new ORUtils::MemoryBlock<unsigned char>(noTotalEntries, MEMORYDEVICE_CPU);
@@ -15,7 +15,7 @@ ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>::ITMSceneReconstructi
 }
 
 template<class TVoxel>
-ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>::~ITMSceneReconstructionEngine_CPU(void) 
+ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>::~ITMSceneReconstructionEngine_CPU(void)
 {
 	delete entriesAllocType;
 	delete blockCoords;
@@ -108,7 +108,7 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::IntegrateIntoS
 			pt_model.z = (float)(globalPos.z + z) * voxelSize;
 			pt_model.w = 1.0f;
 
-			ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation,TVoxel::hasConfidenceInformation, TVoxel>::compute(localVoxelBlock[locId], pt_model, M_d, 
+			ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation,TVoxel::hasConfidenceInformation, TVoxel>::compute(localVoxelBlock[locId], pt_model, M_d,
 				projParams_d, M_rgb, projParams_rgb, mu, maxW, depth, confidence, depthImgSize, rgb, rgbImgSize);
 		}
 	}
@@ -116,7 +116,8 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::IntegrateIntoS
 
 template<class TVoxel>
 void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneFromDepth(ITMScene<TVoxel, ITMVoxelBlockHash> *scene, const ITMView *view,
-	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList)
+	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList,
+	bool useApproximateDepthCheck, bool usePreviousVisibilityList)
 {
 	Vector2i depthImgSize = view->depth->noDims;
 	float voxelSize = scene->sceneParams->voxelSize;
@@ -126,6 +127,9 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 
 	ITMRenderState_VH *renderState_vh = (ITMRenderState_VH*)renderState;
 	if (resetVisibleList) renderState_vh->noVisibleEntries = 0;
+
+	if (!usePreviousVisibilityList)
+		renderState_vh->Reset();
 
 	M_d = trackingState->pose_d->GetM(); M_d.inv(invM_d);
 
@@ -169,9 +173,14 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 	{
 		int y = locId / depthImgSize.x;
 		int x = locId - y * depthImgSize.x;
-		buildHashAllocAndVisibleTypePP(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
-			invProjParams_d, mu, depthImgSize, oneOverVoxelSize, hashTable, scene->sceneParams->viewFrustum_min,
-			scene->sceneParams->viewFrustum_max);
+		if (useApproximateDepthCheck)
+			buildHashAllocAndVisibleTypePointOnly(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
+				invProjParams_d, mu, depthImgSize, oneOverVoxelSize, hashTable, scene->sceneParams->viewFrustum_min,
+				scene->sceneParams->viewFrustum_max);
+		else
+			buildHashAllocAndVisibleTypePP(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
+				invProjParams_d, mu, depthImgSize, oneOverVoxelSize, hashTable, scene->sceneParams->viewFrustum_min,
+				scene->sceneParams->viewFrustum_max);
 	}
 
 	if (onlyUpdateVisibleList) useSwapping = false;
@@ -248,7 +257,7 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 	{
 		unsigned char hashVisibleType = entriesVisibleType[targetIdx];
 		const ITMHashEntry &hashEntry = hashTable[targetIdx];
-		
+
 		if (hashVisibleType == 3)
 		{
 			bool isVisibleEnlarged, isVisible;
@@ -270,7 +279,7 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 		}
 
 		if (hashVisibleType > 0)
-		{	
+		{
 			visibleEntryIDs[noVisibleEntries] = targetIdx;
 			noVisibleEntries++;
 		}
@@ -293,7 +302,7 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 			int vbaIdx;
 			ITMHashEntry hashEntry = hashTable[targetIdx];
 
-			if (entriesVisibleType[targetIdx] > 0 && hashEntry.ptr == -1) 
+			if (entriesVisibleType[targetIdx] > 0 && hashEntry.ptr == -1)
 			{
 				vbaIdx = lastFreeVoxelBlockId; lastFreeVoxelBlockId--;
 				if (vbaIdx >= 0) hashTable[targetIdx].ptr = voxelAllocationList[vbaIdx];
@@ -309,11 +318,11 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMVoxelBlockHash>::AllocateSceneF
 }
 
 template<class TVoxel>
-ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>::ITMSceneReconstructionEngine_CPU(void) 
+ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>::ITMSceneReconstructionEngine_CPU(void)
 {}
 
 template<class TVoxel>
-ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>::~ITMSceneReconstructionEngine_CPU(void) 
+ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>::~ITMSceneReconstructionEngine_CPU(void)
 {}
 
 template<class TVoxel>
@@ -331,7 +340,8 @@ void ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>::ResetScene(ITM
 
 template<class TVoxel>
 void ITMSceneReconstructionEngine_CPU<TVoxel, ITMPlainVoxelArray>::AllocateSceneFromDepth(ITMScene<TVoxel, ITMPlainVoxelArray> *scene, const ITMView *view,
-	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList)
+	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList,
+	bool useApproximateDepthCheck, bool usePreviousVisibilityList)
 {}
 
 template<class TVoxel>
@@ -381,7 +391,7 @@ void ITMSceneReconstructionEngine_CPU<TVoxel, ITMPlainVoxelArray>::IntegrateInto
 		pt_model.z = (float)(z + arrayInfo->offset.z) * voxelSize;
 		pt_model.w = 1.0f;
 
-		ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation, TVoxel::hasConfidenceInformation, TVoxel>::compute(voxelArray[locId], pt_model, M_d, projParams_d, M_rgb, projParams_rgb, mu, maxW, 
+		ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation, TVoxel::hasConfidenceInformation, TVoxel>::compute(voxelArray[locId], pt_model, M_d, projParams_d, M_rgb, projParams_rgb, mu, maxW,
 			depth, depthImgSize, rgb, rgbImgSize);
 	}
 }

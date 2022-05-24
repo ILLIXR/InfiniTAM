@@ -13,6 +13,8 @@ ITMDenseMapper<TVoxel, TIndex>::ITMDenseMapper(const ITMLibSettings *settings)
 	sceneRecoEngine = ITMSceneReconstructionEngineFactory::MakeSceneReconstructionEngine<TVoxel,TIndex>(settings->deviceType);
 	swappingEngine = settings->swappingMode != ITMLibSettings::SWAPPINGMODE_DISABLED ? ITMSwappingEngineFactory::MakeSwappingEngine<TVoxel,TIndex>(settings->deviceType) : NULL;
 
+	useApproximateDepthCheck = settings->useApproximateDepthCheck;
+	usePreviousVisibilityList = settings->usePreviousVisibilityList;
 	swappingMode = settings->swappingMode;
 }
 
@@ -33,7 +35,7 @@ template<class TVoxel, class TIndex>
 void ITMDenseMapper<TVoxel,TIndex>::ProcessFrame(const ITMView *view, const ITMTrackingState *trackingState, ITMScene<TVoxel,TIndex> *scene, ITMRenderState *renderState, bool resetVisibleList)
 {
 	// allocation
-	sceneRecoEngine->AllocateSceneFromDepth(scene, view, trackingState, renderState, false, resetVisibleList);
+	sceneRecoEngine->AllocateSceneFromDepth(scene, view, trackingState, renderState, false, resetVisibleList, useApproximateDepthCheck, usePreviousVisibilityList);
 
 	// integration
 	sceneRecoEngine->IntegrateIntoScene(scene, view, trackingState, renderState);
@@ -53,7 +55,7 @@ void ITMDenseMapper<TVoxel,TIndex>::ProcessFrame(const ITMView *view, const ITMT
 			break;
 		case ITMLibSettings::SWAPPINGMODE_DISABLED:
 			break;
-		} 
+		}
 	}
 }
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "ITMLocalVBA.h"
 #include "ITMGlobalCache.h"
 #include "../../Utils/ITMSceneParams.h"
@@ -27,6 +29,9 @@ namespace ITMLib
 
 		/** Global content of the 8x8x8 voxel blocks -- stored on host only */
 		ITMGlobalCache<TVoxel> *globalCache;
+
+		/** Average confidence per voxel per frame of the scene */
+		std::vector<unsigned> averageConfidence;
 
 		void SaveToDirectory(const std::string &outputDirectory) const
 		{

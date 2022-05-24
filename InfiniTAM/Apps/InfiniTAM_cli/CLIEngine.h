@@ -30,6 +30,17 @@ namespace InfiniTAM
 			ITMLib::ITMIMUMeasurement *inputIMUMeasurement;
 
 			int currentFrameNo;
+
+			struct FrequencyControl {
+				unsigned freqDivisor;
+				int framesSinceFreqChange;
+				std::vector<unsigned> *processed;
+				std::vector<unsigned> *frequencies;
+				std::vector<unsigned> *newBricks;
+			};
+
+			FrequencyControl freqControl;
+
 		public:
 			static CLIEngine* Instance(void) {
 				if (instance == NULL) instance = new CLIEngine();

@@ -10,7 +10,7 @@ namespace ITMLib
     template<class TVoxel, class TIndex>
     class ITMSceneReconstructionEngine_Metal : public ITMSceneReconstructionEngine_CPU<TVoxel,TIndex>
     {};
-    
+
     template<class TVoxel>
     class ITMSceneReconstructionEngine_Metal<TVoxel,ITMVoxelBlockHash> : public ITMSceneReconstructionEngine_CPU<TVoxel,ITMVoxelBlockHash>
     {
@@ -20,14 +20,15 @@ namespace ITMLib
     public:
         void IntegrateIntoScene(ITMScene<TVoxel, ITMVoxelBlockHash> *scene, const ITMView *view, const ITMTrackingState *trackingState,
                                 const ITMRenderState *renderState);
-        
+
         void AllocateSceneFromDepth(ITMScene<TVoxel, ITMVoxelBlockHash> *scene, const ITMView *view,
                                     const ITMTrackingState *trackingState, const ITMRenderState *renderState,
-                                    bool onlyUpdateVisibleList = false, bool resetVisibleList = false);
-        
+                                    bool onlyUpdateVisibleList = false, bool resetVisibleList = false,
+                                    bool useApproximateDepthCheck = false, bool usePreviousVisibilityList = true);
+
         ITMSceneReconstructionEngine_Metal(void);
     };
-    
+
     template<class TVoxel>
     class ITMSceneReconstructionEngine_Metal<TVoxel,ITMPlainVoxelArray> : public ITMSceneReconstructionEngine_CPU<TVoxel,ITMPlainVoxelArray>
     { };

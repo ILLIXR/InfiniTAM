@@ -68,8 +68,17 @@ namespace ITMLib
 		/// Gives access to the current camera pose and additional tracking information
 		virtual ITMTrackingState* GetTrackingState(void) = 0;
 
+		/// Tells the gt pose reader to skip the next frame
+		virtual void SkipFrame(void) { }
+
 		/// Process a frame with rgb and depth images and optionally a corresponding imu measurement
         virtual ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement = NULL) = 0;
+
+		/// Returns number of newly allocated bricks in the last frame
+		virtual unsigned GetNumNewBricks(void) const { return 0; }
+
+		/// Returns camera frequency divisor
+		virtual unsigned GetFreqDivisor(void) { return 1; }
 
 		/// Get a result image as output
 		virtual Vector2i GetImageSize(void) const = 0;

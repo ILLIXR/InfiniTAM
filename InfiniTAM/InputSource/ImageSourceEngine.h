@@ -48,6 +48,13 @@ namespace InputSource {
 		virtual Vector2i getRGBImageSize(void) const = 0;
 
 		/**
+		* \brief Skips over the next image pair in the sequence.
+		*
+		* \pre hasMoreImages()
+		*/
+		virtual void skipImage(void) { }
+
+		/**
 		 * \brief Determines whether or not the image source engine has RGB-D images currently available.
 		 *
 		 * \return  true, if the image source engine has RGB-D images currently available, or false otherwise.
@@ -133,6 +140,7 @@ namespace InputSource {
 		~ImageFileReader();
 
 		bool hasMoreImages(void) const;
+		void skipImage(void);
 		void getImages(ITMUChar4Image *rgb, ITMShortImage *rawDepth);
 		Vector2i getDepthImageSize(void) const;
 		Vector2i getRGBImageSize(void) const;

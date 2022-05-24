@@ -17,6 +17,8 @@ namespace ITMLib
 		ITMSceneReconstructionEngine<TVoxel,TIndex> *sceneRecoEngine;
 		ITMSwappingEngine<TVoxel,TIndex> *swappingEngine;
 
+		bool useApproximateDepthCheck;
+		bool usePreviousVisibilityList;
 		ITMLibSettings::SwappingMode swappingMode;
 
 	public:

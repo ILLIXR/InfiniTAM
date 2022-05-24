@@ -5,21 +5,54 @@ using namespace ITMLib;
 
 #include <climits>
 #include <cmath>
+#include <iostream>
+#include <sstream>
+
+static bool getBooleanVar(std::string var, bool defaultVal) {
+	const char *val_c_str = std::getenv(var.c_str());
+	if (!val_c_str) {
+		return defaultVal;
+	}
+
+	std::istringstream is(std::string{val_c_str});
+	bool val;
+	is >> std::boolalpha >> val;
+	return val;
+}
+
+static ITMLibSettings::FreqMode getFreqMode() {
+	const char *mode_c_str = std::getenv("freqMode");
+	if (!mode_c_str) {
+		return ITMLibSettings::FREQMODE_NONE;
+	}
+
+	std::string mode = std::string{mode_c_str};
+	if (mode == "none")
+		return ITMLibSettings::FREQMODE_NONE;
+	else if (mode == "constant")
+		return ITMLibSettings::FREQMODE_CONSTANT;
+	else if (mode == "controller")
+		return ITMLibSettings::FREQMODE_CONTROLLER;
+	else
+		return ITMLibSettings::FREQMODE_NONE;
+}
+
+static double getFreq() {
+	const char *freq_c_str = std::getenv("frequency");
+	if (!freq_c_str) {
+		return ITMLibSettings::MAX_FREQ;
+	}
+
+	return std::stod(std::string{freq_c_str});
+}
 
 ITMLibSettings::ITMLibSettings(void)
-// :	sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false), // default
-// :	sceneParams(0.02f, 500, 0.002f, 0.2f, 3.0f, false), // Used most of the time
-// :	sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, true), // For VCU robustness test
- :	sceneParams(0.1f, 100, 0.01f, 0.4f, 4.0f, false), // P parameters
+	: sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false), // Default
+//	: sceneParams(0.02f, 500, 0.002f, 0.2f, 3.0f, false), // Used most of the time
+//	: sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, true), // For VCU robustness test
+//	: sceneParams(0.1f, 100, 0.01f, 0.4f, 4.0f, false), // P parameters
 	surfelSceneParams(0.5f, 0.6f, static_cast<float>(20 * M_PI / 180), 0.01f, 0.004f, 3.5f, 25.0f, 4, 1.0f, 5.0f, 20, 10000000, true, true)
 {
-	// skips every other point when using the colour renderer for creating a point cloud
-	skipPoints = true;
-
-	// create all the things required for marching cubes and mesh extraction
-	// - uses additional memory (lots!)
-	createMeshingEngine = true;
-
 #ifndef COMPILE_WITHOUT_CUDA
 	deviceType = DEVICE_CUDA;
 #else
@@ -30,46 +63,62 @@ ITMLibSettings::ITMLibSettings(void)
 #endif
 #endif
 
-	//deviceType = DEVICE_CPU;
+	// Enables or disables using ICP for tracking
+	useICP = getBooleanVar("useICP", false);
 
-	/// how swapping works: disabled, fully enabled (still with dragons) and delete what's not visible - not supported in loop closure version
-	swappingMode = SWAPPINGMODE_DISABLED;
-
-	/// enables or disables approximate raycast
+	// Enables or disables approximate raycast
 	useApproximateRaycast = false;
 
-	/// enable or disable bilateral depth filtering
-	// useBilateralFilter = false;
+	// Enables or disables point-only projection during visibility check
+	useApproximateDepthCheck = getBooleanVar("approxDepthCheck", false);
+
+	// Enables or disables using previous frame's visibility list
+	usePreviousVisibilityList = getBooleanVar("usePrevList", true);
+
+	// Enable or disable bilateral depth filtering
 	useBilateralFilter = true;
 
-	/// what to do on tracker failure: ignore, relocalise or stop integration - not supported in loop closure version
+	// Skips every other point when using the colour renderer for creating a point cloud
+	skipPoints = true;
+
+	// Create all the things required for marching cubes and mesh extraction
+	// - uses additional memory (lots!)
+	createMeshingEngine = true;
+
+	// What to do on tracker failure: ignore, relocalise or stop integration - not supported in loop closure version
 	behaviourOnFailure = FAILUREMODE_IGNORE;
-	// behaviourOnFailure = FAILUREMODE_STOP_INTEGRATION;
-	// behaviourOnFailure = FAILUREMODE_RELOCALISE;
 
-	/// switch between various library modes - basic, with loop closure, etc.
+	// How swapping works: disabled, fully enabled (still with dragons) and delete what's not visible - not supported in loop closure version
+	swappingMode = SWAPPINGMODE_DISABLED;
+
+	// Switch between various library modes - basic, with loop closure, etc.
 	libMode = LIBMODE_BASIC;
-	//libMode = LIBMODE_BASIC_SURFELS;
 
-	//// Default ICP tracking
+	// Choose between various camera frequency modes - none, constant frequency, online controller
+	freqMode = getFreqMode();
+
+	// Frequency for constant frequency mode
+	constFreq = getFreq();
+
+	// Default ICP tracking
 	//trackerConfig = "type=icp,levels=rrrbb,minstep=1e-3,"
 	//				"outlierC=0.01,outlierF=0.002,"
 	//				"numiterC=10,numiterF=2,failureDec=5.0"; // 5 for normal, 20 for loop closure
 
-	// Depth-only extended tracker:
-	trackerConfig = "type=extended,levels=rrbb,useDepth=1,minstep=1e-4,"
-					  "outlierSpaceC=0.1,outlierSpaceF=0.004,"
-					  "numiterC=20,numiterF=50,tukeyCutOff=8,"
-					  // "framesToSkip=0,framesToWeight=50,failureDec=20.0";
-					  "framesToSkip=10,framesToWeight=15,failureDec=20.0"; // P parameters
-
-	//// For hybrid intensity+depth tracking:
-	//trackerConfig = "type=extended,levels=bbb,useDepth=1,useColour=1,"
-	//				  "colourWeight=0.3,minstep=1e-4,"
-	//				  "outlierColourC=0.175,outlierColourF=0.005,"
+	// Depth-only extended tracker
+	//trackerConfig = "type=extended,levels=rrbb,useDepth=1,minstep=1e-4,"
 	//				  "outlierSpaceC=0.1,outlierSpaceF=0.004,"
 	//				  "numiterC=20,numiterF=50,tukeyCutOff=8,"
-	//				  "framesToSkip=20,framesToWeight=50,failureDec=20.0";
+	//				  // "framesToSkip=0,framesToWeight=50,failureDec=20.0";
+	//				  "framesToSkip=10,framesToWeight=15,failureDec=20.0"; // P parameters
+
+	// For hybrid intensity+depth tracking
+	trackerConfig = "type=extended,levels=bbbb,useDepth=1,useColour=1,"
+					"colourWeight=0.3,minstep=1e-4,"
+					"outlierColourC=0.175,outlierColourF=0.005,"
+					"outlierSpaceC=0.1,outlierSpaceF=0.004,"
+					"numiterC=20,numiterF=50,tukeyCutOff=8,"
+					"framesToSkip=10,framesToWeight=20,failureDec=20.0";
 
 	// Colour only tracking, using rendered colours
 	//trackerConfig = "type=rgb,levels=rrbb";

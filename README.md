@@ -4,43 +4,58 @@
 
 ### 0.0 CMakeLists
 
-  - DICP: Turn on when running InfiniTAM with ICP. Turn off when running InfiniTAM with loaded pose(ITM-BE) only.
-
   - DVCU: Turn on when running VCU dataset only. Extrinsic transformation included.
 
   - DDEBUG: Turn on for verbose debug prints.
 
+  - DINSTRUMENTATION: Turn on for collecting detailed voxel data.
+
 ### 0.1 Associated Files
 
-Create a folder named ```associated``` at the same level at color/depth images' folder.
+Create a folder named ```associated``` at the same level as color/depth images' folder.
 
 Please check the folder named ```samples``` for details.
 
-  - ITM-ICP: timestamp, depth image, timestamp, color image.
+  - ITM-ICP format: timestamp, depth image, timestamp, color image.
 
-  - ITM-BE: timestamp, tx, ty, tz, rx, ry, rz, rw, timestamp, depth image, timestamp, color image.
+  - ITM-BE format: timestamp, tx, ty, tz, rx, ry, rz, rw, timestamp, depth image, timestamp, color image.
 
-### 0.2 Hardcoded Codes
+### 0.2 Hardcoded Paths
 
-  - ITMLib/Core/ITMBasicEngine.tpp: Ln 151, 152, 154 for output poses and meshes. They will be overwritten after every run.
+  - ITMLib/Core/ITMBasicEngine.tpp: Ln 164, 165, 169 for output poses and meshes. They will be overwritten after every run.
 
-  - Apps/InfiniTAM/InfiniTAM.cpp: Ln 133, 134 to handle the folder structure of associated files.
+  - Apps/InfiniTAM/InfiniTAM.cpp: Ln 141, 142 to handle the folder structure of associated files.
 
-  - Apps/InfiniTAM_cli/InfiniTAM_cli.cpp: Ln 57, 58. Same as above.
+  - Apps/InfiniTAM_cli/InfiniTAM_cli.cpp: Ln 65, 66. Same as above.
 
-### 0.3 Sample Commands
-  - InfiniTAM with ICP: Open ```CMakeLists``` and turn on ```-DICP```.
+### 0.3 Knobs
+
+The code provides several knobs that can be set at runtime via environment variables. This allows to change the behavior of the algorithm without rebuilding the code. It also facilitates experimentation by allowing a script to configure each run as required. The knobs / environment variables are:
+
+  - `useICP`. Set to `true` to use ICP tracking. Set to `false` to use poses from a file.
+  - `approxDepthCheck`. Set to `true` to only project depth point during visibility check. Set to `false` to project all points along ray from depth+mu to depth-mu.
+  - `usePrevList`. Set to `true` to use the previous frame's visibility list during visibility check. Set to `false` otherwise.
+  - `freqMode`. Set to `none` to process input frames as-is, to `constant` to process frames at a certain frequency, and to `controller` to use an online controller to control the frequency of the frames.
+  - `frequency`. In case of `freqMode=constant`, set to desired frequency.
+
+### 0.4 Useful Scripts
+  - InfiniTAM GUI with ETH3D dataset:
 ```
 	$ cd scripts/InfiniTAM/
 	$ ./ETH3D.sh <seq_file>
 ```
 
-  - InfiniTAM without ICP: Open ```CMakeLists``` and turn off ```-DICP```
+  - InfiniTAM CLI with ETH3D dataset:
 ```
 	$ cd scripts/InfiniTAM-BE/
 	$ ./ETH3D.sh <seq_file> <pose_file>
 ```
 
+  - After running one of the above scripts, several `*_data.csv` files are generated. These can be graphed using `scripts/plot.sh`. The different graph types are: `bricks` for plotting brick data, `voxels` for plotting voxel data, `execution` for plotting new bricks/frame and camera frequency, for both executed and skipped frames , and `controller` for plotting the same graph as `execution` but only for the frames that were executed. Example:
+```
+	$ cd scripts/graphs/
+	$ ./plot.sh execution execution_data.csv
+```
 ---
 
 This is the main branch of the software bundle "InfiniTAM", the current version is actively maintained by:

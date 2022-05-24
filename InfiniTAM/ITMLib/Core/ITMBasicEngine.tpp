@@ -63,6 +63,17 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
 
 	kfRaycast = new ITMUChar4Image(imgSize_d, memoryType);
 
+	std::vector<double> frequencies{1.0f, 2.0f, 3.0f, 5.0f, 6.0f, 10.0f, 15.0f, 30.0f};
+	pidController = new ORUtils::PIDController(
+		1.0f,       // Kp
+		1.0f,       // Ki
+		1.0f,       // Kd
+		0.5f,       // alpha
+		0,          // min frequency index
+		7,          // max frequency index
+		frequencies // Possible frequencies
+	);
+
 	trackingActive = true;
 	fusionActive = true;
 	mainProcessingActive = true;
@@ -70,17 +81,18 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
 	relocalisationCount = 0;
 	framesProcessed = 0;
 
-#ifndef ICP
-	std::cout << "Path to groundtruth: " << pose_path << std::endl;
-	this->loadPoseQuat(pose_path);
+	if (!settings->useICP)
+	{
+		std::cout << "Path to groundtruth: " << pose_path << std::endl;
+		this->loadPoseQuat(pose_path);
 
-	std::cout << "Loaded queue size: " << this->seq_pose.size() << std::endl;
-	std::vector<double> loaded_pose = this->seq_pose.front();
+		std::cout << "Loaded queue size: " << this->seq_pose.size() << std::endl;
+		std::vector<double> loaded_pose = this->seq_pose.front();
 
-	ORUtils::Matrix4<float> assigned_M;
-	Quaternion2Matrix(loaded_pose, assigned_M);
-	trackingState->pose_d->SetInvM(assigned_M.m);
-#endif
+		ORUtils::Matrix4<float> assigned_M;
+		Quaternion2Matrix(loaded_pose, assigned_M);
+		trackingState->pose_d->SetInvM(assigned_M.m);
+	}
 
 #ifdef VCU
 	// Define extrinsic matrix here.
@@ -146,15 +158,48 @@ template <typename TVoxel, typename TIndex>
 ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 {
 
-#ifdef ICP
-	// bytian: default output files
-	this->dumpPoseQuat("ITM-ICP-Pose.txt");
-	// this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-ICP.stl");
-	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-ICP.obj");
-#else
-	// this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-BE.stl");
-	this->SaveSceneToMesh("/home/bytian/Desktop/mesh/ITM-BE.obj");
-#endif
+	if (settings->useICP)
+	{
+		this->dumpPoseQuat("ITM-ICP-Pose.txt");
+		this->SaveSceneToMesh("ITM-ICP.obj");
+	}
+	else
+	{
+		this->SaveSceneToMesh("ITM-BE.obj");
+	}
+
+	{
+		unsigned currBricks = 0;
+		std::ofstream dataFile("brick_data.csv");
+		dataFile << "#Frame,New Bricks,Visible Bricks,Average Confidence/Voxel\n";
+		for (unsigned idx = 0; idx < newBricks.size(); idx++)
+		{
+			// `newBricks` contains cumulative data, so we need to subtract the
+			// previous value to get the per-frame value
+			dataFile << idx << ","
+				<< newBricks[idx] - currBricks << ","
+				<< visibleBricks[idx] << ","
+				<< scene->averageConfidence[idx] << "\n";
+			currBricks = newBricks[idx];
+		}
+		dataFile.close();
+	}
+
+	{
+		unsigned currBricks = 0;
+		std::ofstream dataFile("controller_data.csv");
+		dataFile << "#Frame,New Bricks,Frequency\n";
+		for (unsigned idx = 0; idx < newBricks.size(); idx++)
+		{
+			// `newBricks` contains cumulative data, so we need to subtract the
+			// previous value to get the per-frame value
+			dataFile << idx << ","
+				<< newBricks[idx] - currBricks << ","
+				<< frequency[idx] << "\n";
+			currBricks = newBricks[idx];
+		}
+		dataFile.close();
+	}
 
 	delete renderState_live;
 	if (renderState_freeview != NULL) delete renderState_freeview;
@@ -179,6 +224,7 @@ ITMBasicEngine<TVoxel,TIndex>::~ITMBasicEngine()
 	delete kfRaycast;
 
 	if (meshingEngine != NULL) delete meshingEngine;
+	delete pidController;
 }
 
 template <typename TVoxel, typename TIndex>
@@ -515,6 +561,18 @@ void ITMBasicEngine<TVoxel,TIndex>::Quaternion2Matrix(std::vector<double> &in_po
 
 
 template <typename TVoxel, typename TIndex>
+void ITMBasicEngine<TVoxel, TIndex>::SkipFrame(void)
+{
+	// Only required for the gt tracker
+	if (settings->useICP)
+		return;
+
+	if (!seq_pose.empty())
+		seq_pose.pop();
+}
+
+
+template <typename TVoxel, typename TIndex>
 ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement)
 {
 	std::cout << "============= Begin Basic Engine  ===============" << std::endl;
@@ -528,63 +586,65 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	// tracking
 	ORUtils::SE3Pose oldPose(*(trackingState->pose_d));
 
-#ifdef ICP
-	if (trackingActive) trackingController->Track(trackingState, view);
-	ORUtils::SE3Pose trackPose(*(trackingState->pose_d));
+	if (settings->useICP)
+	{
+		if (trackingActive) trackingController->Track(trackingState, view);
+		ORUtils::SE3Pose trackPose(*(trackingState->pose_d));
 
 #ifdef DEBUG
-	std::cout << "[DEBUG] Fetched pose from InfiniTAM: " << std::endl;
-	printMatrix(trackPose);
+		std::cout << "[DEBUG] Fetched pose from InfiniTAM: " << std::endl;
+		printMatrix(trackPose);
 
-	ORUtils::SE3Pose invPose = trackPose.GetInvM();
-	std::cout << "[DEBUG] Inversed pose from InfinTAM: " << std::endl;
-	printMatrix(invPose);
+		ORUtils::SE3Pose invPose = trackPose.GetInvM();
+		std::cout << "[DEBUG] Inversed pose from InfinTAM: " << std::endl;
+		printMatrix(invPose);
 
-	std::cout << "[DEBUG] Double inversed pose for sanity check: " << std::endl;
-	printMatrix(invPose.GetInvM());
+		std::cout << "[DEBUG] Double inversed pose for sanity check: " << std::endl;
+		printMatrix(invPose.GetInvM());
 
-	std::cout << "[DEBUG] Before applying extrinsic matrix: " << std::endl;
-	printMatrix(trackPose);
+		std::cout << "[DEBUG] Before applying extrinsic matrix: " << std::endl;
+		printMatrix(trackPose);
 #endif // End of DEBUG
 
-	Matrix2Quaternion(trackPose);
+		Matrix2Quaternion(trackPose);
 
 #ifdef DEBUG
-	// params is a private variable
-	// std::cout << "before tx: " << trackingState->pose_d->params.each.tx << std::endl;
-	// std::cout << "before ty: " << trackingState->pose_d->params.each.ty << std::endl;
-	// std::cout << "before tz: " << trackingState->pose_d->params.each.tz << std::endl;
-	// std::cout << "before rx: " << trackingState->pose_d->params.each.rx << std::endl;
-	// std::cout << "before ry: " << trackingState->pose_d->params.each.ry << std::endl;
-	// std::cout << "before rz: " << trackingState->pose_d->params.each.rz << std::endl;
-	// std::cout << std::endl;
+		// params is a private variable
+		// std::cout << "before tx: " << trackingState->pose_d->params.each.tx << std::endl;
+		// std::cout << "before ty: " << trackingState->pose_d->params.each.ty << std::endl;
+		// std::cout << "before tz: " << trackingState->pose_d->params.each.tz << std::endl;
+		// std::cout << "before rx: " << trackingState->pose_d->params.each.rx << std::endl;
+		// std::cout << "before ry: " << trackingState->pose_d->params.each.ry << std::endl;
+		// std::cout << "before rz: " << trackingState->pose_d->params.each.rz << std::endl;
+		// std::cout << std::endl;
 #endif // End of DEBUG
+	}
+	else
+	{
+		// Use loaded pose
+		std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;
 
-#else // Use loaded pose
-	std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;
+		std::vector<double> loaded_pose = this->seq_pose.front();
+		this->seq_pose.pop();
 
-	std::vector<double> loaded_pose = this->seq_pose.front();
-	this->seq_pose.pop();
+		ORUtils::Matrix4<float> assigned_M;
+		Quaternion2Matrix(loaded_pose, assigned_M);
 
-	ORUtils::Matrix4<float> assigned_M;
-	Quaternion2Matrix(loaded_pose, assigned_M);
-
-	trackingState->pose_d->SetInvM(assigned_M.m);
+		trackingState->pose_d->SetInvM(assigned_M.m);
 
 #ifdef DEBUG
-	std::cout << "[DEBUG] Print assigned pose matrix: " << std::endl;
-	ORUtils::SE3Pose sanityAssignedPose(*(trackingState->pose_d));
-	printMatrix(sanityAssignedPose);
+		std::cout << "[DEBUG] Print assigned pose matrix: " << std::endl;
+		ORUtils::SE3Pose sanityAssignedPose(*(trackingState->pose_d));
+		printMatrix(sanityAssignedPose);
 
-	// std::cout << "after tx: " << trackingState->pose_d->params.each.tx << std::endl;
-	// std::cout << "after ty: " << trackingState->pose_d->params.each.ty << std::endl;
-	// std::cout << "after tz: " << trackingState->pose_d->params.each.tz << std::endl;
-	// std::cout << "after rx: " << trackingState->pose_d->params.each.rx << std::endl;
-	// std::cout << "after ry: " << trackingState->pose_d->params.each.ry << std::endl;
-	// std::cout << "after rz: " << trackingState->pose_d->params.each.rz << std::endl;
+		// std::cout << "after tx: " << trackingState->pose_d->params.each.tx << std::endl;
+		// std::cout << "after ty: " << trackingState->pose_d->params.each.ty << std::endl;
+		// std::cout << "after tz: " << trackingState->pose_d->params.each.tz << std::endl;
+		// std::cout << "after rx: " << trackingState->pose_d->params.each.rx << std::endl;
+		// std::cout << "after ry: " << trackingState->pose_d->params.each.ry << std::endl;
+		// std::cout << "after rz: " << trackingState->pose_d->params.each.rz << std::endl;
 #endif // End of DEBUG
-
-#endif // End of Using Groundtruth
+	}
 
 	ITMTrackingState::TrackingResult trackerResult = ITMTrackingState::TRACKING_GOOD;
 	switch (settings->behaviourOnFailure) {
@@ -670,9 +730,84 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	fprintf(stderr, "%f %f %f %f %f %f %f\n", t[0], t[1], t[2], q[1], q[2], q[3], q[0]);
 #endif
 
+	// Collect stats
+	newBricks.push_back(scene->index.getNumAllocatedVoxelBlocks() - scene->localVBA.lastFreeBlockId - 1);
+	visibleBricks.push_back(((ITMRenderState_VH *) renderState_live)->noVisibleEntries);
+
 	std::cout << "============== End Basic Engine  ================" << std::endl;
     
 	return trackerResult;
+}
+
+
+template <typename TVoxel, typename TIndex>
+unsigned ITMBasicEngine<TVoxel, TIndex>::GetNumNewBricks(void) const
+{
+	const unsigned newBricksSize = newBricks.size();
+
+	if (newBricksSize == 0)
+	{
+		return 0;
+	}
+	else if (newBricksSize == 1)
+	{
+		return newBricks[0];
+	}
+	else
+	{
+		return (newBricks[newBricksSize - 1] - newBricks[newBricksSize - 2]);
+	}
+}
+
+
+template <typename TVoxel, typename TIndex>
+unsigned ITMBasicEngine<TVoxel, TIndex>::GetFreqDivisor(void)
+{
+	const double maxFreq = ITMLibSettings::MAX_FREQ;
+
+	switch (settings->freqMode) {
+	case ITMLibSettings::FREQMODE_NONE: {
+		frequency.push_back(maxFreq);
+		return 1;
+	}
+	case ITMLibSettings::FREQMODE_CONSTANT: {
+		double constFreq = settings->constFreq;
+		frequency.push_back(constFreq);
+		return static_cast<unsigned>(maxFreq / constFreq);
+	}
+	case ITMLibSettings::FREQMODE_CONTROLLER: {
+		const unsigned newBricksSize = newBricks.size();
+		unsigned numNewBricks;
+
+		if (newBricksSize == 0)
+		{
+			// No data for first frame, so just run at full frequency
+			frequency.push_back(maxFreq);
+			return 1;
+		}
+		else if (newBricksSize == 1)
+		{
+			// This is a really ugly hack to make sure the controller doesn't see
+			// the first brick allocation. This is because the first allocation
+			// will be of thousands of bricks and will completely skew the
+			// controller's set points.
+			frequency.push_back(maxFreq);
+			return 1;
+		}
+		else
+		{
+			numNewBricks = newBricks[newBricksSize - 1] - newBricks[newBricksSize - 2];
+		}
+
+		double newFreq = pidController->Calculate(numNewBricks);
+		frequency.push_back(newFreq);
+		return static_cast<unsigned>(maxFreq / newFreq);
+	}
+	default: {
+		std::cerr << "Illegal frequency mode!\n";
+		abort();
+	}
+	}
 }
 
 

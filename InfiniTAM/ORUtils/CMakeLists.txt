@@ -41,6 +41,7 @@ MemoryBlockPersister.h
 MemoryDeviceType.h
 NVTimer.h
 PlatformIndependence.h
+PIDController.h
 SE3Pose.h
 SVMClassifier.h
 Vector.h

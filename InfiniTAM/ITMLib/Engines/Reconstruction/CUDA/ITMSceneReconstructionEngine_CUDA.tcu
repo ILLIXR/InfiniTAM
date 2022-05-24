@@ -1,5 +1,8 @@
 // Copyright 2014-2017 Oxford University Innovation Limited and the authors of InfiniTAM
 
+#include <fstream>
+#include <cooperative_groups.h>
+
 #include "ITMSceneReconstructionEngine_CUDA.h"
 
 #include "../Shared/ITMSceneReconstructionEngine_Shared.h"
@@ -12,6 +15,18 @@ struct AllocationTempData {
 	int noVisibleEntries;
 };
 
+struct FrameInfo {
+	unsigned launchedVoxels;
+	unsigned passedCamera;
+	unsigned passedProjection;
+	unsigned passedDepth;
+	unsigned updatedVoxels;
+	unsigned totalConfidence;
+	unsigned visibleBricks;
+};
+
+static std::vector<FrameInfo> frameInfo;
+
 using namespace ITMLib;
 
 namespace
@@ -20,7 +35,7 @@ namespace
 template<class TVoxel, bool stopMaxW>
 __global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *hashTable, int *noVisibleEntryIDs,
 	const Vector4u *rgb, Vector2i rgbImgSize, const float *depth, const float *confidence, Vector2i imgSize, Matrix4f M_d, Matrix4f M_rgb, Vector4f projParams_d, 
-	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW);
+	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW, FrameInfo *frameInfo);
 
 template<class TVoxel, bool stopMaxW>
 __global__ void integrateIntoScene_device(TVoxel *voxelArray, const ITMPlainVoxelArray::ITMVoxelArrayInfo *arrayInfo,
@@ -29,7 +44,7 @@ __global__ void integrateIntoScene_device(TVoxel *voxelArray, const ITMPlainVoxe
 
 __global__ void buildHashAllocAndVisibleType_device(uchar *entriesAllocType, uchar *entriesVisibleType, Vector4s *blockCoords, const float *depth,
 	Matrix4f invM_d, Vector4f projParams_d, float mu, Vector2i _imgSize, float _voxelSize, ITMHashEntry *hashTable, float viewFrustum_min,
-	float viewFrustrum_max);
+	float viewFrustrum_max, bool useApproximateDepthCheck);
 
 __global__ void allocateVoxelBlocksList_device(int *voxelAllocationList, int *excessAllocationList, ITMHashEntry *hashTable, int noTotalEntries,
 	AllocationTempData *allocData, uchar *entriesAllocType, uchar *entriesVisibleType, Vector4s *blockCoords);
@@ -57,6 +72,11 @@ ITMSceneReconstructionEngine_CUDA<TVoxel,ITMVoxelBlockHash>::ITMSceneReconstruct
 	int noTotalEntries = ITMVoxelBlockHash::noTotalEntries;
 	ORcudaSafeCall(cudaMalloc((void**)&entriesAllocType_device, noTotalEntries));
 	ORcudaSafeCall(cudaMalloc((void**)&blockCoords_device, noTotalEntries * sizeof(Vector4s)));
+
+#ifdef INSTRUMENTATION
+	ORcudaSafeCall(cudaMalloc((void**)&frameInfo_device, sizeof(FrameInfo)));
+	ORcudaSafeCall(cudaMallocHost((void**)&frameInfo_host, sizeof(FrameInfo)));
+#endif
 }
 
 template<class TVoxel>
@@ -66,6 +86,27 @@ ITMSceneReconstructionEngine_CUDA<TVoxel,ITMVoxelBlockHash>::~ITMSceneReconstruc
 	ORcudaSafeCall(cudaFree(allocationTempData_device));
 	ORcudaSafeCall(cudaFree(entriesAllocType_device));
 	ORcudaSafeCall(cudaFree(blockCoords_device));
+
+#ifdef INSTRUMENTATION
+	ORcudaSafeCall(cudaFree(frameInfo_device));
+	ORcudaSafeCall(cudaFreeHost(frameInfo_host));
+
+	std::ofstream frameFile("voxel_data.csv");
+	frameFile << "#Frame,Launched Voxels,Passed Camera,Passed Projection,Passed Depth,Updated Voxels,Confidence/Voxel\n";
+	for (unsigned idx = 0; idx < frameInfo.size(); idx++)
+	{
+		unsigned visibleBricks = frameInfo[idx].visibleBricks;
+		frameFile << idx
+			<< "," << frameInfo[idx].launchedVoxels / visibleBricks
+			<< "," << frameInfo[idx].passedCamera / visibleBricks
+			<< "," << frameInfo[idx].passedProjection / visibleBricks
+			<< "," << frameInfo[idx].passedDepth / visibleBricks
+			<< "," << frameInfo[idx].updatedVoxels / visibleBricks
+			<< "," << frameInfo[idx].totalConfidence / frameInfo[idx].updatedVoxels
+			<< "\n";
+	}
+	frameFile.close();
+#endif
 }
 
 template<class TVoxel>
@@ -93,7 +134,8 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel,ITMVoxelBlockHash>::ResetScene(ITM
 
 template<class TVoxel>
 void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::AllocateSceneFromDepth(ITMScene<TVoxel, ITMVoxelBlockHash> *scene, const ITMView *view, 
-	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList)
+	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList,
+	bool useApproximateDepthCheck, bool usePreviousVisibilityList)
 {
 	Vector2i depthImgSize = view->depth->noDims;
 	float voxelSize = scene->sceneParams->voxelSize;
@@ -105,9 +147,8 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::AllocateScene
 
 	if (resetVisibleList) renderState_vh->noVisibleEntries = 0;
 
-#ifdef NOVISLIST
-	renderState_vh->Reset();
-#endif
+	if (!usePreviousVisibilityList)
+		renderState_vh->Reset();
 
 	M_d = trackingState->pose_d->GetM(); M_d.inv(invM_d);
 
@@ -156,7 +197,7 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::AllocateScene
 
 	buildHashAllocAndVisibleType_device << <gridSizeHV, cudaBlockSizeHV >> >(entriesAllocType_device, entriesVisibleType, 
 		blockCoords_device, depth, invM_d, invProjParams_d, mu, depthImgSize, oneOverVoxelSize, hashTable,
-		scene->sceneParams->viewFrustum_min, scene->sceneParams->viewFrustum_max);
+		scene->sceneParams->viewFrustum_min, scene->sceneParams->viewFrustum_max, useApproximateDepthCheck);
 	ORcudaKernelCheck;
 
 	bool useSwapping = scene->globalCache != NULL;
@@ -225,25 +266,46 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMVoxelBlockHash>::IntegrateInto
 
 	int *visibleEntryIDs = renderState_vh->GetVisibleEntryIDs();
 
+#ifdef INSTRUMENTATION
+	ORcudaSafeCall(cudaMemsetAsync(frameInfo_device, 0, sizeof(FrameInfo)));
+#endif
+
 	dim3 cudaBlockSize(SDF_BLOCK_SIZE, SDF_BLOCK_SIZE, SDF_BLOCK_SIZE);
 	dim3 gridSize(renderState_vh->noVisibleEntries);
-
-#ifdef DEBUG
-	std::cout << "[DEBUG] Visible bricks: " << gridSize.x << "\n";
-#endif
 
 	if (scene->sceneParams->stopIntegratingAtMaxW)
 	{
 		integrateIntoScene_device<TVoxel, true> << <gridSize, cudaBlockSize >> >(localVBA, hashTable, visibleEntryIDs,
-			rgb, rgbImgSize, depth, confidence, depthImgSize, M_d, M_rgb, projParams_d, projParams_rgb, voxelSize, mu, maxW);
+			rgb, rgbImgSize, depth, confidence, depthImgSize, M_d, M_rgb, projParams_d, projParams_rgb, voxelSize, mu, maxW,
+			(FrameInfo *) frameInfo_device);
 		ORcudaKernelCheck;
 	}
 	else
 	{
 		integrateIntoScene_device<TVoxel, false> << <gridSize, cudaBlockSize >> >(localVBA, hashTable, visibleEntryIDs,
-			rgb, rgbImgSize, depth, confidence, depthImgSize, M_d, M_rgb, projParams_d, projParams_rgb, voxelSize, mu, maxW);
+			rgb, rgbImgSize, depth, confidence, depthImgSize, M_d, M_rgb, projParams_d, projParams_rgb, voxelSize, mu, maxW,
+			(FrameInfo *) frameInfo_device);
 		ORcudaKernelCheck;
 	}
+
+#ifdef INSTRUMENTATION
+	ORcudaSafeCall(cudaMemcpy(frameInfo_host, frameInfo_device, sizeof(FrameInfo), cudaMemcpyDeviceToHost));
+	frameInfo.push_back(*((FrameInfo *) frameInfo_host));
+	auto &currFrameInfo = frameInfo.back();
+	currFrameInfo.visibleBricks = gridSize.x;
+	scene->averageConfidence.push_back(currFrameInfo.totalConfidence / currFrameInfo.updatedVoxels);
+#ifdef DEBUG
+	std::cout << "[DEBUG] Frame statistics:\n"
+		<< "\tlaunched voxels:   " << currFrameInfo.launchedVoxels << "\n"
+		<< "\tpassed camera:     " << currFrameInfo.passedCamera << "\n"
+		<< "\tpassed projection: " << currFrameInfo.passedProjection << "\n"
+		<< "\tpassed depth:      " << currFrameInfo.passedDepth << "\n"
+		<< "\tupdated voxels:    " << currFrameInfo.updatedVoxels << "\n"
+		<< "\ttotal confidence:  " << currFrameInfo.totalConfidence << "\n"
+		<< "\tvisible bricks:    " << currFrameInfo.visibleBricks << "\n";
+#endif // End of DEBUG
+
+#endif // End of INSTRUMENTATION
 }
 
 // plain voxel array
@@ -263,7 +325,8 @@ void ITMSceneReconstructionEngine_CUDA<TVoxel,ITMPlainVoxelArray>::ResetScene(IT
 
 template<class TVoxel>
 void ITMSceneReconstructionEngine_CUDA<TVoxel, ITMPlainVoxelArray>::AllocateSceneFromDepth(ITMScene<TVoxel, ITMPlainVoxelArray> *scene, const ITMView *view,
-	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList)
+	const ITMTrackingState *trackingState, const ITMRenderState *renderState, bool onlyUpdateVisibleList, bool resetVisibleList,
+	bool useApproximateDepthCheck, bool usePreviousVisibilityList)
 {
 }
 
@@ -313,6 +376,140 @@ namespace
 
 // device functions
 
+template<class TVoxel>
+__device__ inline float computeUpdatedVoxelDepthInfoWithStatistics(DEVICEPTR(TVoxel) &voxel, const THREADPTR(Vector4f) & pt_model, const CONSTPTR(Matrix4f) & M_d,
+	const CONSTPTR(Vector4f) & projParams_d, float mu, int maxW, const CONSTPTR(float) *depth, const CONSTPTR(Vector2i) & imgSize, DEVICEPTR(FrameInfo) *frameInfo)
+{
+	Vector4f pt_camera; Vector2f pt_image;
+	float depth_measure, eta, oldF, newF;
+	int oldW, newW;
+
+#ifdef INSTRUMENTATION
+	atomicAdd(&frameInfo->launchedVoxels, 1);
+#endif
+
+	// transform point from world coordinates to camera coordinates
+	pt_camera = M_d * pt_model;
+	if (pt_camera.z <= 0)
+        return -1;
+
+#ifdef INSTRUMENTATION
+	atomicAdd(&frameInfo->passedCamera, 1);
+#endif
+
+	// project point into image
+	pt_image.x = projParams_d.x * pt_camera.x / pt_camera.z + projParams_d.z;
+	pt_image.y = projParams_d.y * pt_camera.y / pt_camera.z + projParams_d.w;
+	if ((pt_image.x < 1) || (pt_image.x > imgSize.x - 2) || (pt_image.y < 1) || (pt_image.y > imgSize.y - 2))
+        return -1;
+
+#ifdef INSTRUMENTATION
+	atomicAdd(&frameInfo->passedProjection, 1);
+#endif
+
+	// get measured depth from image
+	depth_measure = depth[(int)(pt_image.x + 0.5f) + (int)(pt_image.y + 0.5f) * imgSize.x];
+	if (depth_measure <= 0.0f)
+        return -1;
+
+#ifdef INSTRUMENTATION
+	atomicAdd(&frameInfo->passedDepth, 1);
+#endif
+
+	// check whether voxel needs updating
+	eta = depth_measure - pt_camera.z;
+	if (eta < -mu)
+        return eta;
+
+#ifdef INSTRUMENTATION
+	atomicAdd(&frameInfo->updatedVoxels, 1);
+#endif
+
+	// compute updated SDF value and reliability
+	oldF = TVoxel::valueToFloat(voxel.sdf); oldW = voxel.w_depth;
+
+	newF = MIN(1.0f, eta / mu);
+	newW = 1;
+
+	newF = oldW * oldF + newW * newF;
+	newW = oldW + newW;
+	newF /= newW;
+	newW = MIN(newW, maxW);
+
+	// write back
+	voxel.sdf = TVoxel::floatToValue(newF);
+	voxel.w_depth = newW;
+
+#ifdef INSTRUMENTATION
+	// Parallel reduce newW for use in camera frequency controller
+
+	// TODO: For now, use the simplest implementation to get the controller working.
+	// For the final experiments, profile the following four implementations to
+	// choose the final one:
+	// 1. Global atomics (5M atomics with 10K bricks) <-- current approach
+	// 2. Warp reduce + global atomics (160K atomics with 10K bricks)
+	// 3. Block reduce + global atomics (10K atomics with 10K bricks)
+	// 4. Block reduce + global write + block reduce (no global atomics)
+
+	// Option 1
+	atomicAdd(&frameInfo->totalConfidence, newW);
+
+	// Option 2
+	/*
+	{
+		__syncthreads();
+
+		// TODO: Confirm that this works on Jetson. If not, implement using warp primitives.
+		auto group = cooperative_groups::coalesced_threads();
+
+		// This is **only an approximate sum** if group size is odd, but that's
+		// presumably okay because the camera frequency controller doesn't need an
+		// exact value.
+		// TODO: Arithmetic mean or geometric mean?
+		for (unsigned offset = group.size() / 2; offset > 0; offset /= 2)
+			newW += group.shfl_down(newW, offset);
+
+		// Only thread 0 of the group will have the full sum
+		if (group.thread_rank() == 0)
+			atomicAdd(&frameInfo->totalConfidence, newW);
+	}
+	*/
+
+	// Options 3 and 4
+	/*
+	{
+		__syncthreads();
+		__shared__ unsigned temp[SDF_BLOCK_SIZE3];
+
+		auto group = cooperative_groups::this_thread_block();
+		unsigned lane = group.thread_rank();
+
+		// TODO: Only reduce till warp size and then use shuffle primitives for the rest
+		for (unsigned offset = group.size() / 2; offset > 0; offset /= 2)
+		{
+			temp[lane] = newW;
+			group.sync();
+			if (lane < offset)
+				newW += temp[lane + offset];
+			group.sync();
+		}
+
+		// Option 3
+		// Only thread 0 of the group will have the full sum
+		if (group.thread_rank() == 0)
+			atomicAdd(&frameInfo->totalConfidence, newW);
+
+		// Option 4
+		// Only thread 0 of the block will have the full sum
+		if (threadIdx.x == 0)
+			sceneConfidencePartial[blockIdx.x] = newW;
+	}
+	*/
+#endif
+
+	return eta;
+}
+
 template<class TVoxel, bool stopMaxW>
 __global__ void integrateIntoScene_device(TVoxel *voxelArray, const ITMPlainVoxelArray::ITMVoxelArrayInfo *arrayInfo,
 	const Vector4u *rgb, Vector2i rgbImgSize, const float *depth, const float *confidence, Vector2i depthImgSize, Matrix4f M_d, Matrix4f M_rgb, Vector4f projParams_d, 
@@ -340,7 +537,7 @@ __global__ void integrateIntoScene_device(TVoxel *voxelArray, const ITMPlainVoxe
 template<class TVoxel, bool stopMaxW>
 __global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *hashTable, int *visibleEntryIDs,
 	const Vector4u *rgb, Vector2i rgbImgSize, const float *depth, const float *confidence, Vector2i depthImgSize, Matrix4f M_d, Matrix4f M_rgb, Vector4f projParams_d, 
-	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW)
+	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW, FrameInfo *frameInfo)
 {
 	Vector3i globalPos;
 	int entryId = visibleEntryIDs[blockIdx.x];
@@ -367,25 +564,29 @@ __global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *
 	pt_model.z = (float)(globalPos.z + z) * _voxelSize;
 	pt_model.w = 1.0f;
 
-	ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation, TVoxel::hasConfidenceInformation, TVoxel>::compute(localVoxelBlock[locId], 
-		pt_model, M_d, projParams_d, M_rgb, projParams_rgb, mu, maxW, depth, confidence, depthImgSize, rgb, rgbImgSize);
+	// ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation, TVoxel::hasConfidenceInformation, TVoxel>::compute(localVoxelBlock[locId],
+	// 	pt_model, M_d, projParams_d, M_rgb, projParams_rgb, mu, maxW, depth, confidence, depthImgSize, rgb, rgbImgSize);
+
+	float eta = computeUpdatedVoxelDepthInfoWithStatistics(localVoxelBlock[locId], pt_model, M_d, projParams_d, mu, maxW, depth, depthImgSize, frameInfo);
+	if ((eta > mu) || (fabs(eta / mu) > 0.25f))
+		return;
+	computeUpdatedVoxelColorInfo(localVoxelBlock[locId], pt_model, M_rgb, projParams_rgb, mu, maxW, eta, rgb, rgbImgSize);
 }
 
 __global__ void buildHashAllocAndVisibleType_device(uchar *entriesAllocType, uchar *entriesVisibleType, Vector4s *blockCoords, const float *depth,
 	Matrix4f invM_d, Vector4f projParams_d, float mu, Vector2i _imgSize, float _voxelSize, ITMHashEntry *hashTable, float viewFrustum_min,
-	float viewFrustum_max)
+	float viewFrustum_max, bool useApproximateDepthCheck)
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x, y = threadIdx.y + blockIdx.y * blockDim.y;
 
 	if (x > _imgSize.x - 1 || y > _imgSize.y - 1) return;
 
-#ifdef CHECKPOINT
-	buildHashAllocAndVisibleTypePointOnly(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
-		projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
-#else
-	buildHashAllocAndVisibleTypePP(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
-		projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
-#endif
+	if (useApproximateDepthCheck)
+		buildHashAllocAndVisibleTypePointOnly(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
+			projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
+	else
+		buildHashAllocAndVisibleTypePP(entriesAllocType, entriesVisibleType, x, y, blockCoords, depth, invM_d,
+			projParams_d, mu, _imgSize, _voxelSize, hashTable, viewFrustum_min, viewFrustum_max);
 }
 
 __global__ void setToType3(uchar *entriesVisibleType, int *visibleEntryIDs, int noVisibleEntries)

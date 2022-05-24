@@ -2,7 +2,10 @@
 
 #include "UIEngine.h"
 
+#include <fstream>
+#include <iostream>
 #include <string.h>
+
 #ifdef __APPLE__
 #include <GLUT/glut.h>
 #else
@@ -591,6 +594,12 @@ void UIEngine::Initialise(int & argc, char** argv, ImageSourceEngine *imageSourc
 
 	sdkResetTimer(&timer_average);
 
+	freqControl.freqDivisor = mainEngine->GetFreqDivisor();
+	freqControl.framesSinceFreqChange = 0;
+	freqControl.processed = new std::vector<unsigned>;
+	freqControl.frequencies = new std::vector<unsigned>;
+	freqControl.newBricks = new std::vector<unsigned>;
+
 	printf("initialised.\n");
 }
 
@@ -608,65 +617,93 @@ void UIEngine::GetScreenshot(ITMUChar4Image *dest) const
 
 void UIEngine::ProcessFrame()
 {
-	std::cout << "============================ Begin A Frame =============================" << std::endl;
-	UIEngine *uiEngine = UIEngine::Instance();
-	if (!imageSource->hasMoreImages())
+	std::cout << "\n============================ Begin Frame =============================\n";
+
+	// Frequency control
+	freqControl.frequencies->push_back(ITMLibSettings::MAX_FREQ / freqControl.freqDivisor);
+	bool shouldSkip = (freqControl.framesSinceFreqChange % freqControl.freqDivisor) != 0;
+	if (shouldSkip)
 	{
-		uiEngine->mainLoopAction = UIEngine::EXIT;
-		return;
+		std::cout << "Skipping frame " << currentFrameNo << "\n";
+		imageSource->skipImage();
+		mainEngine->SkipFrame();
+		freqControl.processed->push_back(0);
+		freqControl.newBricks->push_back(0);
 	}
-
-	imageSource->getImages(inputRGBImage, inputRawDepthImage);
-
-	mainEngine->currentTimeStamp = imageSource->currentTimeStamp;
-
-	if (imuSource != NULL) {
-		if (!imuSource->hasMoreMeasurements()) return;
-		else imuSource->getMeasurement(inputIMUMeasurement);
-	}
-
-	if (isRecording)
+	else
 	{
-		char str[250];
+		std::cout << "Running frame " << currentFrameNo << "\n";
 
-		sprintf(str, "%s/%04d.pgm", outFolder, currentFrameNo);
-		SaveImageToFile(inputRawDepthImage, str);
-
-		if (inputRGBImage->noDims != Vector2i(0, 0)) {
-			sprintf(str, "%s/%04d.ppm", outFolder, currentFrameNo);
-			SaveImageToFile(inputRGBImage, str);
+		UIEngine *uiEngine = UIEngine::Instance();
+		if (!imageSource->hasMoreImages())
+		{
+			uiEngine->mainLoopAction = UIEngine::EXIT;
+			return;
 		}
-	}
-	if ((rgbVideoWriter != NULL) && (inputRGBImage->noDims.x != 0)) {
-		if (!rgbVideoWriter->isOpen()) rgbVideoWriter->open("out_rgb.avi", inputRGBImage->noDims.x, inputRGBImage->noDims.y, false, 30);
-		rgbVideoWriter->writeFrame(inputRGBImage);
-	}
-	if ((depthVideoWriter != NULL) && (inputRawDepthImage->noDims.x != 0)) {
-		if (!depthVideoWriter->isOpen()) depthVideoWriter->open("out_d.avi", inputRawDepthImage->noDims.x, inputRawDepthImage->noDims.y, true, 30);
-		depthVideoWriter->writeFrame(inputRawDepthImage);
-	}
 
-	sdkResetTimer(&timer_instant);
-	sdkStartTimer(&timer_instant); sdkStartTimer(&timer_average);
+		imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
-	ITMTrackingState::TrackingResult trackerResult;
-	//actual processing on the mailEngine
-	if (imuSource != NULL) trackerResult = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
-	else trackerResult = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+		mainEngine->currentTimeStamp = imageSource->currentTimeStamp;
 
-	trackingResult = (int)trackerResult;
+		if (imuSource != NULL) {
+			if (!imuSource->hasMoreMeasurements()) return;
+			else imuSource->getMeasurement(inputIMUMeasurement);
+		}
 
-	std::cout << "Current Frame No: " << currentFrameNo << " - Tracking Result: " << trackingResult << std::endl << std::endl;
+		if (isRecording)
+		{
+			char str[250];
+
+			sprintf(str, "%s/%04d.pgm", outFolder, currentFrameNo);
+			SaveImageToFile(inputRawDepthImage, str);
+
+			if (inputRGBImage->noDims != Vector2i(0, 0)) {
+				sprintf(str, "%s/%04d.ppm", outFolder, currentFrameNo);
+				SaveImageToFile(inputRGBImage, str);
+			}
+		}
+		if ((rgbVideoWriter != NULL) && (inputRGBImage->noDims.x != 0)) {
+			if (!rgbVideoWriter->isOpen()) rgbVideoWriter->open("out_rgb.avi", inputRGBImage->noDims.x, inputRGBImage->noDims.y, false, 30);
+			rgbVideoWriter->writeFrame(inputRGBImage);
+		}
+		if ((depthVideoWriter != NULL) && (inputRawDepthImage->noDims.x != 0)) {
+			if (!depthVideoWriter->isOpen()) depthVideoWriter->open("out_d.avi", inputRawDepthImage->noDims.x, inputRawDepthImage->noDims.y, true, 30);
+			depthVideoWriter->writeFrame(inputRawDepthImage);
+		}
+
+		sdkResetTimer(&timer_instant);
+		sdkStartTimer(&timer_instant); sdkStartTimer(&timer_average);
+
+		ITMTrackingState::TrackingResult trackerResult;
+		//actual processing on the mainEngine
+		if (imuSource != NULL) trackerResult = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
+		else trackerResult = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+
+		trackingResult = (int)trackerResult;
+
+		std::cout << "Current Frame No: " << currentFrameNo << " - Tracking Result: " << trackingResult << std::endl << std::endl;
 
 #ifndef COMPILE_WITHOUT_CUDA
-	ORcudaSafeCall(cudaThreadSynchronize());
+		ORcudaSafeCall(cudaThreadSynchronize());
 #endif
-	sdkStopTimer(&timer_instant); sdkStopTimer(&timer_average);
+		sdkStopTimer(&timer_instant); sdkStopTimer(&timer_average);
 
-	//processedTime = sdkGetTimerValue(&timer_instant);
-	processedTime = sdkGetAverageTimerValue(&timer_average);
+		//processedTime = sdkGetTimerValue(&timer_instant);
+		processedTime = sdkGetAverageTimerValue(&timer_average);
+
+		freqControl.processed->push_back(1);
+		freqControl.newBricks->push_back(mainEngine->GetNumNewBricks());
+		unsigned newDivisor = mainEngine->GetFreqDivisor();
+		if (newDivisor != freqControl.freqDivisor)
+		{
+			freqControl.freqDivisor = newDivisor;
+			freqControl.framesSinceFreqChange = -1;
+		}
+	}
 
 	currentFrameNo++;
+	freqControl.framesSinceFreqChange++;
+	std::cout << "============================= End Frame ==============================\n";
 }
 
 void UIEngine::Run() { glutMainLoop(); }
@@ -689,4 +726,14 @@ void UIEngine::Shutdown()
 	delete saveImage;
 	delete instance;
 	instance = NULL;
+
+	std::ofstream frameFile("execution_data.csv");
+	frameFile << "#Frame,New Bricks,Frequency\n";
+	for (unsigned idx = 0; idx < freqControl.processed->size(); idx++)
+		frameFile << idx << "," << freqControl.newBricks->at(idx) << "," << freqControl.frequencies->at(idx) << "\n";
+	frameFile.close();
+
+	delete freqControl.processed;
+	delete freqControl.frequencies;
+	delete freqControl.newBricks;
 }

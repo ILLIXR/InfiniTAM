@@ -14,6 +14,7 @@
 #include "../Objects/Misc/ITMIMUCalibrator.h"
 
 #include "../../FernRelocLib/Relocaliser.h"
+#include "../../ORUtils/PIDController.h"
 
 namespace ITMLib
 {
@@ -51,10 +52,18 @@ namespace ITMLib
 		/// Pointer to the current camera pose and additional tracking information
 		ITMTrackingState *trackingState;
 
-		// bytian: My variables
+		// Pose manipulation
 		std::queue<std::vector<double>> seq_pose;
 		using ITMMainEngine::currentTimeStamp;
 		ORUtils::Matrix4<float> matrix_TCtoI;
+
+		// Per frame statistics
+		std::vector<unsigned> newBricks;
+		std::vector<unsigned> visibleBricks;
+
+		// Camera frequency control
+		ORUtils::PIDController *pidController;
+		std::vector<double> frequency;
 
 	public:
 		ITMView* GetView(void) { return view; }
@@ -63,7 +72,12 @@ namespace ITMLib
 		/// Gives access to the internal world representation
 		ITMScene<TVoxel, TIndex>* GetScene(void) { return scene; }
 
+		void SkipFrame(void);
+
 		ITMTrackingState::TrackingResult ProcessFrame(ITMUChar4Image *rgbImage, ITMShortImage *rawDepthImage, ITMIMUMeasurement *imuMeasurement = NULL);
+
+		unsigned GetNumNewBricks(void) const;
+		unsigned GetFreqDivisor(void);
 
 		/// Extracts a mesh from the current scene and saves it to the model file specified by the file name
 		void SaveSceneToMesh(const char *fileName);

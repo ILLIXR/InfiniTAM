@@ -23,13 +23,13 @@ namespace InfiniTAM
 			enum MainLoopAction
 			{
 				PROCESS_PAUSED, PROCESS_FRAME, PROCESS_VIDEO, EXIT, SAVE_TO_DISK
-			}mainLoopAction;
+			} mainLoopAction;
 
 			struct UIColourMode {
 				const char *name;
 				ITMLib::ITMMainEngine::GetImageType type;
 				UIColourMode(const char *_name, ITMLib::ITMMainEngine::GetImageType _type)
-				 : name(_name), type(_type)
+					: name(_name), type(_type)
 				{}
 			};
 			std::vector<UIColourMode> colourModes_main, colourModes_freeview;
@@ -66,6 +66,17 @@ namespace InfiniTAM
 			int currentFrameNo; bool isRecording;
 			InputSource::FFMPEGWriter *rgbVideoWriter;
 			InputSource::FFMPEGWriter *depthVideoWriter;
+
+			struct FrequencyControl {
+				unsigned freqDivisor;
+				int framesSinceFreqChange;
+				std::vector<unsigned> *processed;
+				std::vector<unsigned> *frequencies;
+				std::vector<unsigned> *newBricks;
+			};
+
+			FrequencyControl freqControl;
+
 		public:
 			static UIEngine* Instance(void) {
 				if (instance == NULL) instance = new UIEngine();
@@ -95,7 +106,7 @@ namespace InfiniTAM
 
 			void Run();
 			void ProcessFrame();
-			
+
 			void GetScreenshot(ITMUChar4Image *dest) const;
 			void SaveScreenshot(const char *filename) const;
 		};

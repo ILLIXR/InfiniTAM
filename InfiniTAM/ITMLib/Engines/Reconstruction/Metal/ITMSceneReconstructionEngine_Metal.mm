@@ -137,7 +137,8 @@ void ITMSceneReconstructionEngine_Metal<TVoxel,ITMVoxelBlockHash>::BuildAllocAnd
 template<class TVoxel>
 void ITMSceneReconstructionEngine_Metal<TVoxel, ITMVoxelBlockHash>::AllocateSceneFromDepth(ITMScene<TVoxel, ITMVoxelBlockHash> *scene, const ITMView *view,
                                                                                            const ITMTrackingState *trackingState, const ITMRenderState *renderState,
-                                                                                           bool onlyUpdateVisibleList, bool resetVisibleList)
+                                                                                           bool onlyUpdateVisibleList, bool resetVisibleList,
+                                                                                           bool useApproximateDepthCheck, bool usePreviousVisibilityList)
 {
     Vector2i depthImgSize = view->depth->noDims;
     float voxelSize = scene->sceneParams->voxelSize;
@@ -147,6 +148,9 @@ void ITMSceneReconstructionEngine_Metal<TVoxel, ITMVoxelBlockHash>::AllocateScen
 
     ITMRenderState_VH *renderState_vh = (ITMRenderState_VH*)renderState;
     if (resetVisibleList) renderState_vh->noVisibleEntries = 0;
+
+    if (!usePreviousVisibilityList)
+        renderState_vh->Reset();
 
     M_d = trackingState->pose_d->GetM(); M_d.inv(invM_d);
 

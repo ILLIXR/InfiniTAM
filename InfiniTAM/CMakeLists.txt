@@ -43,21 +43,14 @@ IF(MSVC_IDE)
   ADD_DEFINITIONS(-DUSING_CMAKE=1)
 ENDIF()
 
-# bytian: my definitions for input format
-
-# Use ICP or loaded poses
-# ADD_DEFINITIONS(-DICP)
-
 # Pose format
 # ADD_DEFINITIONS(-DVCU)
 
 # Verbose debug prints
+# ADD_DEFINITIONS(-DDEBUG)
 
-# Algorithmic approximation 1: check depth point instead of depth ray
-# ADD_DEFINITIONS(-DCHECKPOINT)
-
-# Algorithmic approximation 2: do not check previous frame's visible bricks
-# ADD_DEFINITIONS(-DNOVISLIST)
+# Instrumentation
+# ADD_DEFINITIONS(-DINSTRUMENTATION)
 
 ######################
 # Add subdirectories #
