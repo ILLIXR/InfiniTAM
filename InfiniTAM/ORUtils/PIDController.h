@@ -28,8 +28,8 @@ namespace ORUtils
 		T alpha;
 		T count{};
 		T sumVal{};
-		T minVal{};
-		T maxVal{};
+		T minVal{std::numeric_limits<T>::max()};
+		T maxVal{std::numeric_limits<T>::min()};
 		T lowPoint{};
 		T highPoint{};
 		T binSize{};
@@ -44,8 +44,11 @@ namespace ORUtils
 		std::vector<T> window;
 		static constexpr unsigned WINDOW_SIZE{30};
 
-		T lastError{};
+		// Bootstrapping
 		bool bootstrap{true};
+		static constexpr unsigned BOOTSTRAP_LENGTH{100};
+
+		T lastError{};
 
 	private:
 		void enqueue(T val)
@@ -55,14 +58,9 @@ namespace ORUtils
 				window.erase(window.begin());
 		}
 
-		unsigned size() const
-		{
-			return window.size();
-		}
-
 		T average() const
 		{
-			return std::accumulate(window.begin(), window.end(), T{}) / static_cast<double>(size());
+			return std::accumulate(window.begin(), window.end(), T{}) / static_cast<double>(window.size());
 		}
 
 		void updateSetpoints(T val)
@@ -127,27 +125,24 @@ namespace ORUtils
 			// Final output index
 			T outputIdx = pIdx + iIdx + dIdx;
 
-			// Convert to bin index and clamp to min/max
+			// Convert to bin index and clamp to [min, max]
 			outputIdx = CLAMP(std::floor(outputIdx), minOutputIdx, maxOutputIdx);
 
 			return outputs[outputIdx];
 		}
 
 	public:
-		GenericPIDController(T Kp_, T Ki_, T Kd_, T alpha_,
-			unsigned minOutputIdx_, unsigned maxOutputIdx_, std::vector<T> outputs_)
-			: Kp(Kp_)
-			, Ki(Ki_)
-			, Kd(Kd_)
-			, alpha(alpha_)
-			, minVal(std::numeric_limits<T>::max())
-			, maxVal(std::numeric_limits<T>::min())
-			, minOutputIdx(minOutputIdx_)
-			, maxOutputIdx(maxOutputIdx_)
-			, outputs(outputs_)
+		GenericPIDController(T Kp_, T Ki_, T Kd_, T alpha_, std::vector<T> outputs_)
+			: Kp{Kp_}
+			, Ki{Ki_}
+			, Kd{Kd_}
+			, alpha{alpha_}
+			, minOutputIdx{0}
+			, maxOutputIdx{static_cast<unsigned>(outputs_.size() - 1)}
+			, numOutputs{static_cast<double>(outputs_.size())}
+			, outputs{outputs_}
 		{
 			static_assert(std::is_arithmetic<T>::value, "Type must be an arithmetic type!");
-			numOutputs = outputs.size();
 		}
 
 		T Calculate(T val)
@@ -157,7 +152,7 @@ namespace ORUtils
 			updateSetpoints(val);
 
 			// Bootstrap phase ends when the sliding window fills up
-			if (size() == WINDOW_SIZE)
+			if (count == BOOTSTRAP_LENGTH)
 				bootstrap = false;
 
 			// Run at max until bootstrap phase finishes

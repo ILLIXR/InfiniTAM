@@ -42,7 +42,7 @@ void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuS
 	freqControl.freqDivisor = mainEngine->GetFreqDivisor();
 	freqControl.framesSinceFreqChange = 0;
 	freqControl.processed = new std::vector<unsigned>;
-	freqControl.frequencies = new std::vector<unsigned>;
+	freqControl.frequencies = new std::vector<double>;
 	freqControl.newBricks = new std::vector<unsigned>;
 
 	printf("initialised.\n");
@@ -54,7 +54,7 @@ bool CLIEngine::ProcessFrame()
 	std::cout << "\n============================ Begin Frame =============================\n";
 
 	// Frequency control
-	freqControl.frequencies->push_back(ITMLibSettings::MAX_FREQ / freqControl.freqDivisor);
+	freqControl.frequencies->push_back(ITMLibSettings::MAX_FREQ / static_cast<double>(freqControl.freqDivisor));
 	bool shouldSkip = (freqControl.framesSinceFreqChange % freqControl.freqDivisor) != 0;
 	if (shouldSkip)
 	{
@@ -100,7 +100,7 @@ bool CLIEngine::ProcessFrame()
 		if (newDivisor != freqControl.freqDivisor)
 		{
 			freqControl.freqDivisor = newDivisor;
-			freqControl.framesSinceFreqChange = -1;
+			freqControl.framesSinceFreqChange = 0;
 		}
 	}
 

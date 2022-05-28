@@ -63,15 +63,13 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
 
 	kfRaycast = new ITMUChar4Image(imgSize_d, memoryType);
 
-	std::vector<double> frequencies{1.0f, 2.0f, 3.0f, 5.0f, 6.0f, 10.0f, 15.0f, 30.0f};
+	std::vector<double> divisors{10.0f, 9.0f, 8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f};
 	pidController = new ORUtils::PIDController(
-		1.0f,       // Kp
-		1.0f,       // Ki
+		0.4f,       // Kp
+		0.9f,       // Ki
 		1.0f,       // Kd
-		0.5f,       // alpha
-		0,          // min frequency index
-		7,          // max frequency index
-		frequencies // Possible frequencies
+		0.4f,       // alpha
+		divisors    // Possible divisors
 	);
 
 	trackingActive = true;
@@ -799,13 +797,15 @@ unsigned ITMBasicEngine<TVoxel, TIndex>::GetFreqDivisor(void)
 			numNewBricks = newBricks[newBricksSize - 1] - newBricks[newBricksSize - 2];
 		}
 
-		double newFreq = pidController->Calculate(numNewBricks);
-		frequency.push_back(newFreq);
-		return static_cast<unsigned>(maxFreq / newFreq);
+		double divisor = pidController->Calculate(numNewBricks);
+		frequency.push_back(maxFreq / divisor);
+#ifdef DEBUG
+		std::cout << "[DEBUG] PID controller output: " << maxFreq << "/" << divisor << " Hz\n";
+#endif
+		return static_cast<unsigned>(divisor);
 	}
 	default: {
-		std::cerr << "Illegal frequency mode!\n";
-		abort();
+		throw std::runtime_error("Illegal frequency mode!");
 	}
 	}
 }

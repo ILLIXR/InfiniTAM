@@ -35,7 +35,7 @@ namespace InfiniTAM
 				unsigned freqDivisor;
 				int framesSinceFreqChange;
 				std::vector<unsigned> *processed;
-				std::vector<unsigned> *frequencies;
+				std::vector<double> *frequencies;
 				std::vector<unsigned> *newBricks;
 			};
 
