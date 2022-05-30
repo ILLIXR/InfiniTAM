@@ -18,11 +18,20 @@ then
 	exit 1
 fi
 
+# ICP
 export useICP=false
+
+# Approximations
 export approxDepthCheck=false
 export usePrevList=true
+
+# Fusion
 export freqMode=constant
-export frequency=30.0
+export fusionFrequency=30.0
+
+# Raycasting
+export decoupleRaycasting=false
+export raycastingFrequency=1.0
 
 # Sequence fully associated with specified pose 
 ../../build/Apps/InfiniTAM_cli/InfiniTAM_cli ../calibration/ETH3D.txt /home/bytian/Documents/Datasets/ETH3D/training/$seq/associated/$file.txt

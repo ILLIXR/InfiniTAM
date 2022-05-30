@@ -14,21 +14,22 @@ using namespace ITMLib;
 
 CLIEngine* CLIEngine::instance;
 
-void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuSource, ITMMainEngine *mainEngine,
-	ITMLibSettings::DeviceType deviceType)
+void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuSource, ITMMainEngine *mainEngine, ITMLibSettings *settings)
 {
 	this->imageSource = imageSource;
 	this->imuSource = imuSource;
 	this->mainEngine = mainEngine;
+	this->internalSettings = settings;
 
 	this->currentFrameNo = 0;
 
 	bool allocateGPU = false;
-	if (deviceType == ITMLibSettings::DEVICE_CUDA) allocateGPU = true;
+	if (internalSettings->deviceType == ITMLibSettings::DEVICE_CUDA) allocateGPU = true;
 
 	inputRGBImage = new ITMUChar4Image(imageSource->getRGBImageSize(), true, allocateGPU);
 	inputRawDepthImage = new ITMShortImage(imageSource->getDepthImageSize(), true, allocateGPU);
 	inputIMUMeasurement = new ITMIMUMeasurement();
+	outImage = new ITMUChar4Image(imageSource->getRGBImageSize(), true, allocateGPU);
 
 #ifndef COMPILE_WITHOUT_CUDA
 	ORcudaSafeCall(cudaThreadSynchronize());
@@ -44,6 +45,8 @@ void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuS
 	freqControl.processed = new std::vector<unsigned>;
 	freqControl.frequencies = new std::vector<double>;
 	freqControl.newBricks = new std::vector<unsigned>;
+
+	raycastingFreqDivisor = ITMLibSettings::MAX_FREQ / static_cast<unsigned>(internalSettings->raycastingFreq);
 
 	printf("initialised.\n");
 }
@@ -104,6 +107,15 @@ bool CLIEngine::ProcessFrame()
 		}
 	}
 
+	// Obtain visualisation if we're running in decoupled mode
+	if (internalSettings->useDecoupledRaycasting)
+	{
+		if ((currentFrameNo % raycastingFreqDivisor) == 0)
+		{
+			mainEngine->GetImage(outImage, ITMMainEngine::InfiniTAM_IMAGE_SCENERAYCAST);
+		}
+	}
+
 	currentFrameNo++;
 	freqControl.framesSinceFreqChange++;
 	std::cout << "============================= End Frame ==============================\n";
@@ -125,6 +137,7 @@ void CLIEngine::Shutdown()
 	delete inputRGBImage;
 	delete inputRawDepthImage;
 	delete inputIMUMeasurement;
+	delete outImage;
 
 	delete instance;
 

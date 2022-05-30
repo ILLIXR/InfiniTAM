@@ -19,15 +19,17 @@ namespace InfiniTAM
 
 			InputSource::ImageSourceEngine *imageSource;
 			InputSource::IMUSourceEngine *imuSource;
-			ITMLib::ITMLibSettings internalSettings;
+			ITMLib::ITMLibSettings *internalSettings;
 			ITMLib::ITMMainEngine *mainEngine;
 
 			StopWatchInterface *timer_instant;
 			StopWatchInterface *timer_average;
 
 		private:
-			ITMUChar4Image *inputRGBImage; ITMShortImage *inputRawDepthImage;
+			ITMUChar4Image *inputRGBImage;
+			ITMShortImage *inputRawDepthImage;
 			ITMLib::ITMIMUMeasurement *inputIMUMeasurement;
+			ITMUChar4Image *outImage;
 
 			int currentFrameNo;
 
@@ -41,6 +43,8 @@ namespace InfiniTAM
 
 			FrequencyControl freqControl;
 
+			unsigned raycastingFreqDivisor;
+
 		public:
 			static CLIEngine* Instance(void) {
 				if (instance == NULL) instance = new CLIEngine();
@@ -49,8 +53,7 @@ namespace InfiniTAM
 
 			float processedTime;
 
-			void Initialise(InputSource::ImageSourceEngine *imageSource, InputSource::IMUSourceEngine *imuSource, ITMLib::ITMMainEngine *mainEngine,
-				ITMLib::ITMLibSettings::DeviceType deviceType);
+			void Initialise(InputSource::ImageSourceEngine *imageSource, InputSource::IMUSourceEngine *imuSource, ITMLib::ITMMainEngine *mainEngine, ITMLib::ITMLibSettings *settings);
 			void Shutdown();
 
 			void Run();

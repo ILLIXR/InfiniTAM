@@ -699,7 +699,8 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 		framesProcessed++;
 	}
 
-	if (trackerResult == ITMTrackingState::TRACKING_GOOD || trackerResult == ITMTrackingState::TRACKING_POOR)
+	// Only raycast in coupled mode. In decoupled mode, raycasting will be run separately
+	if (!settings->useDecoupledRaycasting && (trackerResult == ITMTrackingState::TRACKING_GOOD || trackerResult == ITMTrackingState::TRACKING_POOR))
 	{
 		if (!didFusion) denseMapper->UpdateVisibleList(view, trackingState, scene, renderState_live);
 
@@ -714,7 +715,10 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 			kfRaycast->SetFrom(renderState_live->raycastImage, memoryCopyDirection);
 		}
 	}
-	else *trackingState->pose_d = oldPose;
+	else if (!settings->useDecoupledRaycasting)
+	{
+		*trackingState->pose_d = oldPose;
+	}
 
 #ifdef OUTPUT_TRAJECTORY_QUATERNIONS
 	const ORUtils::SE3Pose *p = trackingState->pose_d;
@@ -769,9 +773,9 @@ unsigned ITMBasicEngine<TVoxel, TIndex>::GetFreqDivisor(void)
 		return 1;
 	}
 	case ITMLibSettings::FREQMODE_CONSTANT: {
-		double constFreq = settings->constFreq;
-		frequency.push_back(constFreq);
-		return static_cast<unsigned>(maxFreq / constFreq);
+		double fusionFreq = settings->fusionFreq;
+		frequency.push_back(fusionFreq);
+		return static_cast<unsigned>(maxFreq / fusionFreq);
 	}
 	case ITMLibSettings::FREQMODE_CONTROLLER: {
 		const unsigned newBricksSize = newBricks.size();

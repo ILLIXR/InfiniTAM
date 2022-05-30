@@ -56,6 +56,9 @@ namespace ITMLib
 		/// Do not raycast every frame
 		bool useApproximateRaycast;
 
+		/// Decouple raycasting from fusion
+		bool useDecoupledRaycasting;
+
 		/// Only project depth point (and not ray) during visibility check
 		bool useApproximateDepthCheck;
 
@@ -74,14 +77,17 @@ namespace ITMLib
 		SwappingMode swappingMode;
 		LibMode libMode;
 
-		/// Frequency mode
+		/// Fusion frequency mode
 		FreqMode freqMode;
 
-		/// Frequency to use in constant frequency mode
-		double constFreq;
+		/// Fusion frequency in constant frequency mode
+		double fusionFreq;
 
-		/// Maximum camera frequency
+		/// Maximum fusion frequency
 		static constexpr double MAX_FREQ = 30.0f;
+
+		/// Raycasting frequency in decoupled mode
+		double raycastingFreq;
 
 		const char *trackerConfig;
 

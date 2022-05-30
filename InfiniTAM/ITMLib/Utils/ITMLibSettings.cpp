@@ -5,9 +5,10 @@ using namespace ITMLib;
 
 #include <climits>
 #include <cmath>
-#include <iostream>
 #include <sstream>
+#include <stdexcept>
 
+/// Returns the value of 'var' from the environment on success, returns 'defaultVal' otherwise
 static bool getBooleanVar(std::string var, bool defaultVal) {
 	const char *val_c_str = std::getenv(var.c_str());
 	if (!val_c_str) {
@@ -20,6 +21,17 @@ static bool getBooleanVar(std::string var, bool defaultVal) {
 	return val;
 }
 
+/// Returns the value of 'var' from the environment on success, returns 'defaultVal' otherwise
+static double getDoubleVar(std::string var, double defaultVal) {
+	const char *freq_c_str = std::getenv(var.c_str());
+	if (!freq_c_str) {
+		return defaultVal;
+	}
+
+	return std::stod(std::string{freq_c_str});
+}
+
+/// Returns the fusion frequency mode set in the environment
 static ITMLibSettings::FreqMode getFreqMode() {
 	const char *mode_c_str = std::getenv("freqMode");
 	if (!mode_c_str) {
@@ -35,15 +47,6 @@ static ITMLibSettings::FreqMode getFreqMode() {
 		return ITMLibSettings::FREQMODE_CONTROLLER;
 	else
 		return ITMLibSettings::FREQMODE_NONE;
-}
-
-static double getFreq() {
-	const char *freq_c_str = std::getenv("frequency");
-	if (!freq_c_str) {
-		return ITMLibSettings::MAX_FREQ;
-	}
-
-	return std::stod(std::string{freq_c_str});
 }
 
 ITMLibSettings::ITMLibSettings(void)
@@ -68,6 +71,11 @@ ITMLibSettings::ITMLibSettings(void)
 
 	// Enables or disables approximate raycast
 	useApproximateRaycast = false;
+
+	// Enables or disables decoupled raycasting
+	useDecoupledRaycasting = getBooleanVar("decoupleRaycasting", false);
+	if (useICP && useDecoupledRaycasting)
+		throw std::runtime_error("Cannot decouple raycasting when ICP is enabled!");
 
 	// Enables or disables point-only projection during visibility check
 	useApproximateDepthCheck = getBooleanVar("approxDepthCheck", false);
@@ -97,8 +105,11 @@ ITMLibSettings::ITMLibSettings(void)
 	// Choose between various camera frequency modes - none, constant frequency, online controller
 	freqMode = getFreqMode();
 
-	// Frequency for constant frequency mode
-	constFreq = getFreq();
+	// Frequency for fusion in constant frequency mode
+	fusionFreq = getDoubleVar("fusionFrequency", MAX_FREQ);
+
+	// Frequency for raycasting in decoupled mode
+	raycastingFreq = getDoubleVar("raycastingFrequency", MAX_FREQ);
 
 	// Default ICP tracking
 	//trackerConfig = "type=icp,levels=rrrbb,minstep=1e-3,"

@@ -146,7 +146,7 @@ try
 		internalSettings, imageSource->getCalib(), imageSource->getRGBImageSize(), imageSource->getDepthImageSize(), groundtruth
 	);
 
-	CLIEngine::Instance()->Initialise(imageSource, imuSource, mainEngine, internalSettings->deviceType);
+	CLIEngine::Instance()->Initialise(imageSource, imuSource, mainEngine, internalSettings);
 	CLIEngine::Instance()->Run();
 	CLIEngine::Instance()->Shutdown();
 

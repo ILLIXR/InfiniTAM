@@ -44,9 +44,9 @@ namespace ORUtils
 		std::vector<T> window;
 		static constexpr unsigned WINDOW_SIZE{30};
 
-		// Bootstrapping
+		// Bootstrapping -- lasts 1 second at 30 fps
 		bool bootstrap{true};
-		static constexpr unsigned BOOTSTRAP_LENGTH{100};
+		static constexpr unsigned BOOTSTRAP_LENGTH{30};
 
 		T lastError{};
 
@@ -98,7 +98,7 @@ namespace ORUtils
 
 			// Go up a bin
 			if (ascending)
-				return binSize;
+				return T{1};
 			else
 				return T{};
 		}
