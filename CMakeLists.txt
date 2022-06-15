@@ -9,7 +9,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 
-find_package( OpenCV REQUIRED )
+find_package( OpenCV 3.4.6 EXACT REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ) 
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
@@ -29,7 +29,8 @@ SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 #################################
 
 IF(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -std=c++17 -Wno-deprecated-declarations -Wno-unused-function")
+    #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -std=c++17 -Wno-deprecated-declarations -Wno-unused-function -I /usr/local/cuda-11.2/include")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -std=c++17 -Wno-deprecated-declarations -Wno-unused-function ")
 #  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
 ENDIF()
 
@@ -61,5 +62,5 @@ ADD_SUBDIRECTORY(ORUtils)
 #add_library(plugin STATIC plugin.cpp)
 add_library(plugin SHARED plugin.cpp)
 TARGET_LINK_LIBRARIES(plugin CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
-#TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
+TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 target_link_libraries(plugin ${OpenCV_LIBS} Eigen3::Eigen)  

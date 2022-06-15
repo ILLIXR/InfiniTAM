@@ -22,15 +22,15 @@ class infinitam : public plugin {
             //pyh still hardcode to read the calib file
             char cur_path[256];
             getcwd(cur_path,256);
-            std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
+            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
 
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_vcu.txt";
-            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_vcu.txt";
+            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr2.txt";
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr1.txt";
-            //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3_website.txt";
+            std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3.txt";
             //std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib_fr3_website_wrong_switch.txt";
 
-            //read from calib.txt and convert to ITMRGBDCalib format
+            //pyh read from calib.txt and convert to ITMRGBDCalib format
             //modified from ITMLib/Objects/Camera/ITMCalibIo::readRGBDCalib(
             calib = new ITMLib::ITMRGBDCalib();
             if(!readRGBDCalib(calib_source.c_str(), *calib)){
@@ -57,9 +57,14 @@ class infinitam : public plugin {
                     this->ProcessFrame(datum);
                     });
             is_first_pose=true;
-            //adjusted_file.open("85_fr3_cabinet_calibfr3_voxel10_gt_input.csv");
+            //adjusted_file.open("1129_VCU_simple1_VIO_adjpose.csv");
             printf("================================InfiniTAM: setup finished==========================\n");
-            output_mesh_name="914_room_CPU_debug.stl";
+            
+            
+            
+            //pyh mesh generation destination
+            //When running ILLIXR, the mesh will generated in the ILLIXR home directory (one level up)
+            output_mesh_name="your_mesh_name.stl";
         }
 
         void ProcessFrame(switchboard::ptr<const rgb_depth_pose_type> datum)
@@ -72,13 +77,19 @@ class infinitam : public plugin {
                 cv::Mat cur_depth = datum->depth.value();
                 //enable color 
                 cv::Mat cur_rgb = datum->rgb.value();
-
+                //printf("depth type %s\n",type2str(cur_depth.type()).c_str());
+                //printf("rgb type %s\n",type2str(cur_rgb.type()).c_str());
                 //test tx ty tz 
+                
+                
+                
                 //step 1 input quaternion and position vector are retrieved
                 Eigen::Vector3f cur_pos = datum->position.value();
                 Eigen::Quaternionf cur_ori = datum->orientation.value();
 
                 ORUtils::Matrix4<float> cur_trans;
+                ORUtils::Matrix4<float> vcu_precalibrated_trans;
+                ORUtils::Matrix4<float> vcu_body_trans;
                 ORUtils::Matrix4<float> test_trans;
 
                 //uncomment this if you want to position relative to first frame(no usecase yet)
@@ -98,34 +109,63 @@ class infinitam : public plugin {
                 //Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
 
                 //uncomment this if you want to use ICP tracker pose or directly feeding groundtruth pose
-                Eigen::Quaternionf adjusted_orientation = cur_ori;
-                Eigen::Vector3f adjusted_pos = cur_pos;
-                Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
+                //Eigen::Quaternionf adjusted_orientation = cur_ori;
+                //Eigen::Vector3f adjusted_pos = cur_pos;
+                //Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
 
-                //818 VCU coord system
-                //Eigen::Vector3f adjusted_pos;
-                //adjusted_pos(0) = - cur_pos(1); //-ty
-                //adjusted_pos(1) = - cur_pos(0); //-tx
-                //adjusted_pos(2) = - cur_pos(2); //-tz
+                //1122 attempt fix
+                Eigen::Vector3f adjusted_pos=cur_pos;
+                Eigen::Quaternionf adjusted_orientation = cur_ori;
+                //Eigen::Matrix3f temp_rot = adjusted_orientation.normalized().toRotationMatrix();
+                Eigen::Matrix3f temp_rot = adjusted_orientation.toRotationMatrix();
+                vcu_body_trans.m[0] = temp_rot(0,0); vcu_body_trans.m[1] = temp_rot(1,0); vcu_body_trans.m[2] = temp_rot(2,0);
+                vcu_body_trans.m[3] = 0.0f;
+
+                vcu_body_trans.m[4] = temp_rot(0,1); vcu_body_trans.m[5] = temp_rot(1,1); vcu_body_trans.m[6] = temp_rot(2,1);
+                vcu_body_trans.m[7] = 0.0f;
+
+                vcu_body_trans.m[8] = temp_rot(0,2); vcu_body_trans.m[9] = temp_rot(1,2); vcu_body_trans.m[10] = temp_rot(2,2);
+                vcu_body_trans.m[11] = 0.0f;
+
+                vcu_body_trans.m[12] = adjusted_pos(0); vcu_body_trans.m[13] = adjusted_pos(1); vcu_body_trans.m[14] = adjusted_pos(2);
+                vcu_body_trans.m[15] = 1.0f;
+                
+                vcu_precalibrated_trans.m[0] = 0.00193013; vcu_precalibrated_trans.m[1] = -0.999996; vcu_precalibrated_trans.m[2] = 0.00223829;
+                vcu_precalibrated_trans.m[3] = 0.0f;
+
+                vcu_precalibrated_trans.m[4] = -0.999997; vcu_precalibrated_trans.m[5] = -0.0019327; vcu_precalibrated_trans.m[6] = -0.00114906;
+                vcu_precalibrated_trans.m[7] = 0.0f;
+
+                vcu_precalibrated_trans.m[8] = 0.00115338; vcu_precalibrated_trans.m[9] = -0.00223606; vcu_precalibrated_trans.m[10] = -0.999997;
+                vcu_precalibrated_trans.m[11] = 0.0f;
+
+                vcu_precalibrated_trans.m[12] = -0.00817048; vcu_precalibrated_trans.m[13] = 0.015075; vcu_precalibrated_trans.m[14] = -0.0110795;
+                vcu_precalibrated_trans.m[15] = 1.0f;
+                
+                //use this if you are usign vcu
+                //cur_trans = vcu_body_trans * vcu_precalibrated_trans;             
+                //use this if you are using groundtruth
+                cur_trans = vcu_body_trans ;
+                
                 //Eigen::Quaternionf adjusted_orientation;
                 //adjusted_orientation.y() = cur_ori.x();
                 //adjusted_orientation.x() = cur_ori.y();
                 //adjusted_orientation.z() = -cur_ori.z();
                 //adjusted_orientation.w() = -cur_ori.w();
                 //Eigen::Matrix3f adjusted_rot = adjusted_orientation.normalized().toRotationMatrix();
-                
-                //step 3 put them in a transformation matrix 
-                cur_trans.m[0] = adjusted_rot(0,0); cur_trans.m[1] = adjusted_rot(1,0); cur_trans.m[2] = adjusted_rot(2,0);
-                cur_trans.m[3] = 0.0f;
+                //
+                ////step 3 put them in a transformation matrix 
+                //cur_trans.m[0] = adjusted_rot(0,0); cur_trans.m[1] = adjusted_rot(1,0); cur_trans.m[2] = adjusted_rot(2,0);
+                //cur_trans.m[3] = 0.0f;
 
-                cur_trans.m[4] = adjusted_rot(0,1); cur_trans.m[5] = adjusted_rot(1,1); cur_trans.m[6] = adjusted_rot(2,1);
-                cur_trans.m[7] = 0.0f;
+                //cur_trans.m[4] = adjusted_rot(0,1); cur_trans.m[5] = adjusted_rot(1,1); cur_trans.m[6] = adjusted_rot(2,1);
+                //cur_trans.m[7] = 0.0f;
 
-                cur_trans.m[8] = adjusted_rot(0,2); cur_trans.m[9] = adjusted_rot(1,2); cur_trans.m[10] = adjusted_rot(2,2);
-                cur_trans.m[11] = 0.0f;
+                //cur_trans.m[8] = adjusted_rot(0,2); cur_trans.m[9] = adjusted_rot(1,2); cur_trans.m[10] = adjusted_rot(2,2);
+                //cur_trans.m[11] = 0.0f;
 
-                cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
-                cur_trans.m[15] = 1.0f;
+                //cur_trans.m[12] = adjusted_pos(0); cur_trans.m[13] = adjusted_pos(1); cur_trans.m[14] = adjusted_pos(2);
+                //cur_trans.m[15] = 1.0f;
                 //if this is the first seeding or full seeding mode,  we initialise the first pose
                 //if(is_first_pose)
                 //{
@@ -133,7 +173,7 @@ class infinitam : public plugin {
                 //    mainEngine->SetInitialPose(cur_trans);
                 //    is_first_pose=false;
                 //}
-                //used for only full seeding change
+                //used for only full seeding change and relative seeding
                 //mainEngine->SetSeedingPose(cur_trans);
                 
                 //dump input transformation matrix info
@@ -150,33 +190,39 @@ class infinitam : public plugin {
                 //gt_array.push_back(single_trans);
                 //end dumping
     
-                const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
+                
+                //pyh converting the to the InfiniTAM expected data structure
                 const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
 
                 short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
+                //enable color
+                const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                 Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
-
                 std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
-                std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
-                //ICP mode
-                ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
                 
-                if(tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
-                {
-                    printf("tracking failed at frame %d\n", frame_count);
-                    std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
-                    mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
-                    std::exit(0);
-                }
+                std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
+                
+                //ICP mode
+                //ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+                //if(tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
+                //{
+                //    printf("tracking failed at frame %d\n", frame_count);
+                //    std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
+                //    mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
+                //    std::exit(0);
+                //}
+                
                 //ground truth mode
-                //mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, cur_trans);
+                mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, cur_trans);
+                
                 //for GPU version only
-                //ORcudaSafeCall(cudaThreadSynchronize());
+                ORcudaSafeCall(cudaThreadSynchronize());
             }
             else{   printf("missing either rgb or depth or both\n");}
         }
 
         virtual ~infinitam() override{
+            //pyh uncomment if you want to dump ground truth info
             for(auto i=0; i<gt_array.size(); i++)
             {
                 for(auto j=0; j<(gt_array[i].size()-1); j++)
@@ -192,6 +238,7 @@ class infinitam : public plugin {
             mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
 
         }
+        //pyh some debugging function
         std::string type2str(int type) 
         {
             std::string r;
