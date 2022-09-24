@@ -5,6 +5,7 @@
 #include "../common/data_format.hpp"
 #include "../common/relative_clock.hpp"
 #include "../common/pose_prediction.hpp"
+
 #include <iomanip>
 #include <opencv/cv.hpp>
 #include <opencv2/core/core.hpp>
@@ -33,6 +34,7 @@ public:
         , sb{pb->lookup_impl<switchboard>()}
         , pp{pb->lookup_impl<pose_prediction>()}
         , _m_slow_pose{sb->get_reader<pose_type>("slow_pose")}
+        , _m_reconstruction{sb->get_writer<reconstruction_type>("scene_reconstruction")}
     {
         // internal setting 
         internalSettings = new ITMLib::ITMLibSettings();
@@ -82,6 +84,7 @@ public:
 
         inputRawDepthImage = new ITMShortImage(calib->intrinsics_d.imgSize, true, allocateGPU);
         inputRGBImage = new ITMUChar4Image(calib->intrinsics_rgb.imgSize, true, allocateGPU);
+        reconstructedImage = new ITMUChar4Image(calib->intrinsics_d.imgSize, true, false);
         inputIMUMeasurement = new ITMIMUMeasurement();
 
         std::cout << "Main engine initialized" << std::endl;
@@ -205,26 +208,59 @@ public:
                 freqControl.freqDivisor = newDivisor;
                 freqControl.framesSinceFreqChange = 0;
             }
+
+            // Publish reconstructed image
+            mainEngine->getImage(reconstructedImage, reconstructedImageType);
+            _m_reconstruction.put(_m_reconstruction.allocate(
+                cv::Mat{reconstructedImage->noDims.y,
+                        reconstructedImage->noDims.x,
+                        CV_8UC4,
+                        reconstructedImage->GetData(MEMORY_CPU)
+                }
+            ));
         }
+
         freqControl.framesSinceFreqChange++;
         std::cout << "\n";
         count++;
     }
     
-    virtual ~infiniTAM() override{
+    virtual ~infiniTAM() override {
         std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
         mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
+
+        // Free pointers
+        delete internalSettings;
+        delete calib;
+        delete mainEngine;
+
+        // Free images
+        delete inputRawDepthImage;
+        delete inputRGBImage;
+        delete reconstructedImage;
+        delete inputIMUMeasurement;
+
+        // Free PID data
+        delete freqControl.processed;
+        delete freqControl.frequencies;
+        delete freqControl.newBricks;
     }
+
 private:
     const std::shared_ptr<switchboard> sb;
     const std::shared_ptr<pose_prediction> pp;
-    switchboard::reader<pose_type>    _m_slow_pose;
+    switchboard::reader<pose_type> _m_slow_pose;
+    switchboard::writer<reconstruction_type> _m_reconstruction;
 
     ITMLib::ITMRGBDCalib *calib;
     ITMLib::ITMMainEngine *mainEngine;
     ITMUChar4Image *inputRGBImage;
     ITMShortImage *inputRawDepthImage;
     ITMLib::ITMIMUMeasurement *inputIMUMeasurement;
+
+    // Reconstruction data
+    ITMUChar4Image *reconstructedImage;
+    ITMLib::ITMMainEngine::GetImageType reconstructedImageType{ITMLib::ITMMainEngine::InfiniTAM_IMAGE_SCENERAYCAST};
 
     std::string output_mesh_name;
 
