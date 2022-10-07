@@ -5,6 +5,7 @@
 #include "../Objects/Misc/ITMIMUMeasurement.h"
 #include "../Trackers/Interface/ITMTracker.h"
 #include "../Utils/ITMLibSettings.h"
+#include <iomanip>
 
 /** \mainpage
     This is the API reference documentation for InfiniTAM. For a general
@@ -96,8 +97,13 @@ namespace ITMLib
 		virtual void dumpPoseQuat(std::string filename) { };
 		virtual void loadPoseQuat(const char *filename) { };
 
+		/// input pose from ILLIXR
+		std::vector<double> input_pose;
+		ORUtils::Matrix4<float> input_mat;
+		
 		std::string currentTimeStamp;
 
 		virtual ~ITMMainEngine() {}
 	};
 }
+

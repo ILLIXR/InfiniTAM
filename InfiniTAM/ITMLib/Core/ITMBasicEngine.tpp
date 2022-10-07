@@ -18,12 +18,17 @@
 
 //#define OUTPUT_TRAJECTORY_QUATERNIONS
 
+// #define VCU
+
+#define ILLIXR_PLUGIN
+
 using namespace ITMLib;
 
 template <typename TVoxel, typename TIndex>
 ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, const ITMRGBDCalib& calib, Vector2i imgSize_rgb, Vector2i imgSize_d, const char* pose_path)
 {
 	this->settings = settings;
+	fpose.open("/home/henrydc/infinitam_pose.txt", std::fstream::out);
 
 	if ((imgSize_d.x == -1) || (imgSize_d.y == -1)) imgSize_d = imgSize_rgb;
 
@@ -81,15 +86,15 @@ ITMBasicEngine<TVoxel,TIndex>::ITMBasicEngine(const ITMLibSettings *settings, co
 
 	if (!settings->useICP)
 	{
-		std::cout << "Path to groundtruth: " << pose_path << std::endl;
-		this->loadPoseQuat(pose_path);
+		// std::cout << "Path to groundtruth: " << pose_path << std::endl;
+		// this->loadPoseQuat(pose_path);
 
-		std::cout << "Loaded queue size: " << this->seq_pose.size() << std::endl;
-		std::vector<double> loaded_pose = this->seq_pose.front();
+		// std::cout << "Loaded queue size: " << this->seq_pose.size() << std::endl;
+		// std::vector<double> loaded_pose = this->seq_pose.front();
 
-		ORUtils::Matrix4<float> assigned_M;
-		Quaternion2Matrix(loaded_pose, assigned_M);
-		trackingState->pose_d->SetInvM(assigned_M.m);
+		// ORUtils::Matrix4<float> assigned_M;
+		// Quaternion2Matrix(loaded_pose, assigned_M);
+		// trackingState->pose_d->SetInvM(assigned_M.m);
 	}
 
 #ifdef VCU
@@ -231,6 +236,7 @@ void ITMBasicEngine<TVoxel,TIndex>::SaveSceneToMesh(const char *objFileName)
 	if (meshingEngine == NULL) return;
 
 	const int allocatedBricks = scene->index.getNumAllocatedVoxelBlocks() - scene->localVBA.lastFreeBlockId - 1;
+	std::cout << "allocatedBricks: " << allocatedBricks << std::endl;
 	const int allocatedVoxels = allocatedBricks * SDF_BLOCK_SIZE3;
 
 #ifdef DEBUG
@@ -507,6 +513,7 @@ void ITMBasicEngine<TVoxel,TIndex>::Matrix2Quaternion(ORUtils::SE3Pose &in_pose)
 	QuaternionFromRotationMatrix(R, q);
 
 	// TUM order: timestamp, tx, ty, tz, rx, ry, rz, rw
+	std::cout << "timestamp: " <<this->currentTimeStamp.c_str() << std::endl;
 	std::vector<double> out_pose = {std::stod(this->currentTimeStamp.c_str()), t[0], t[1], t[2], q[1], q[2], q[3], q[0]};
 	this->seq_pose.push(out_pose);
 
@@ -619,11 +626,21 @@ ITMTrackingState::TrackingResult ITMBasicEngine<TVoxel,TIndex>::ProcessFrame(ITM
 	}
 	else
 	{
-		// Use loaded pose
-		std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;
+		// Uncomment to use loaded pose from text file
+		// input from text file
+		// std::cout << "Current queue size: " << this->seq_pose.size() << std::endl;
+		// std::vector<double> loaded_pose = this->seq_pose.front();
+		// this->seq_pose.pop();
 
-		std::vector<double> loaded_pose = this->seq_pose.front();
-		this->seq_pose.pop();
+		// Use loaded_pose from ILLIXR
+		// trackingState->pose_d->SetInvM(input_mat);
+
+		if (input_pose.size() != 8) {
+			std::cout << "Input pose from ILLIXR is invalid" << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		std::vector<double> loaded_pose = input_pose;
+		input_pose.clear();
 
 		ORUtils::Matrix4<float> assigned_M;
 		Quaternion2Matrix(loaded_pose, assigned_M);
