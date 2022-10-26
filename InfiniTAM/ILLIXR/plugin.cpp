@@ -47,7 +47,7 @@ public:
         internalSettings->raycastingFreq=1.0;
 
         // calibration
-        std::string calib_source = "/home/henrydc/tinker/InfiniTAM-ILLIXR/InfiniTAM/InfiniTAM/scripts/calibration/ETH3D.txt"; 
+        std::string calib_source = "/home/illixr/henry/InfiniTAM/InfiniTAM/scripts/calibration/ETH3D.txt"; 
         calib = new ITMLib::ITMRGBDCalib();
         if(!readRGBDCalib(calib_source.c_str(), *calib)){
             printf("Read RGBD caliberation file failed\n");
@@ -61,7 +61,6 @@ public:
             calib->intrinsics_rgb.imgSize,
             calib->intrinsics_d.imgSize
         );
-        
         bool allocateGPU = false;
 	    if (internalSettings->deviceType == ITMLibSettings::DEVICE_CUDA) allocateGPU = true;
 
@@ -90,10 +89,6 @@ public:
         std::cout << "Main engine initialized" << std::endl;
         output_mesh_name = "mesh.obj";
 
-        count = 1;
-        // sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](switchboard::ptr<const rgb_depth_type> datum, std::size_t iteration_no) {
-		// 	this->ProcessFrame(datum, iteration_no);
-		// });
         sb->schedule<imu_cam_type>(id, "imu_cam", [&](switchboard::ptr<const imu_cam_type> datum, std::size_t iteration_no) {
 			this->ProcessFrame(datum, iteration_no);
 		});
@@ -102,12 +97,10 @@ public:
     
     // void ProcessFrame(switchboard::ptr<const rgb_depth_type> datum, std::size_t iteration_no){
     void ProcessFrame(switchboard::ptr<const imu_cam_type> datum, std::size_t iteration_no){
-        if (datum == NULL) {
+        if (datum == NULL && buffer.empty()) {
             return;
         }
-
-
-        if (!datum->img1.has_value() || !datum->depth.has_value()) {
+        if ((!datum->img1.has_value() || !datum->depth.has_value()) && buffer.empty()) {
             return;
         }
         freqControl.frequencies->push_back(ITMLibSettings::MAX_FREQ / static_cast<double>(freqControl.freqDivisor));
@@ -123,39 +116,49 @@ public:
             sdkStartTimer(&timer_instant); 
             sdkStartTimer(&timer_average);
 
-            // grab rgb and depth images 
-            cv::Mat cur_depth{datum->depth.value()};
-            cv::Mat cur_rgb{datum->img1.value()};
+            // get slow poses from ILLIXR
+            switchboard::ptr<const pose_type> slow_pose_ptr = _m_slow_pose.get_ro_nullable();
+            if (slow_pose_ptr->position == Eigen::Vector3f::Zero()) {
+                std::cout << "Invalid pose: " << iteration_no << std::endl;
+                prev_datum = datum;
+                return;
+            }
+            if (prev_datum != NULL) {
+                buffer.push(prev_datum);
+                prev_datum = datum;
+            }
 
+            // check if new pose is received
+            auto start = std::chrono::steady_clock::now();
+            while (prev_timestamp == slow_pose_ptr->sensor_time) {
+                slow_pose_ptr = _m_slow_pose.get_ro_nullable();
+            }
+            auto end = std::chrono::steady_clock::now();
+            double duration = std::chrono::duration<double>(end-start).count();
+            total_time+= duration;
+            min_runtime = std::min(min_runtime, duration);
+            max_runtime = std::max(max_runtime, duration);
+            count++;
+            std::cout <<  "While loop waiting time: current: " << duration << " min: " << min_runtime << " max: " << max_runtime << " avg: " << total_time / count << std::endl;
+
+            // match pose with corresponding cam images
+            switchboard::ptr<const imu_cam_type> current_datum = buffer.front();
+            std::cout << "Using cam " << duration2double(current_datum->time.time_since_epoch()) << " for pose " << duration2double(slow_pose_ptr->sensor_time.time_since_epoch()) << std::endl;
+            
+            // grab rgb and depth images 
+            cv::Mat cur_depth{current_datum->depth.value()};        
+            cv::Mat cur_rgb{current_datum->img1.value()};
+            
             // convert rgb and depth into InfiniTAM expected data type
             const short* depth_frame = reinterpret_cast<const short*>(cur_depth.datastart);
             short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
-
             const Vector4u* color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
             Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
-
             std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) * inputRGBImage->dataSize);
             std::memcpy(cur_depth_head, depth_frame, sizeof(short) * inputRawDepthImage->dataSize);
-
-            switchboard::ptr<const pose_type> slow_pose_ptr = _m_slow_pose.get_ro_nullable();
-            if (!slow_pose_ptr) {
-                std::cout << "InfiniTAM: pose not available" << std::endl;
-                return;
-            }
-            // pose_type swapped_pose = pp->correct_pose(*slow_pose_ptr);
-            // std::cout << "ORB_SLAM Pose: " << double(slow_pose_ptr->position.x()) << " "
-            //                             << double(slow_pose_ptr->position.x()) << " "
-            //                             << double(slow_pose_ptr->position.x()) << " "
-            //                             << double(slow_pose_ptr->orientation.x()) << " "
-            //                             << double(slow_pose_ptr->orientation.x()) << " "
-            //                             << double(slow_pose_ptr->orientation.x()) << " "
-            //                             << double(slow_pose_ptr->orientation.x()) << std::endl;
-            // if (datum->dataset_time < 2995*1e9) {
-            //     std::cout << "Skipping poses" << datum->dataset_time << " " << duration2double(datum->time.time_since_epoch()) << std::endl;
-            //     return;
-            // }
             
-            std::vector<double> cur_pose = {duration2double(datum->time.time_since_epoch()), 
+            // feed poses to main engine 
+            std::vector<double> cur_pose = {duration2double(current_datum->time.time_since_epoch()), 
                                             double(slow_pose_ptr->position.x()),
                                             double(slow_pose_ptr->position.y()),
                                             double(slow_pose_ptr->position.z()),
@@ -165,30 +168,15 @@ public:
                                             double(slow_pose_ptr->orientation.w())};
             mainEngine->input_pose = cur_pose;
 
-            std::cout << "rgbd_timestamp " << duration2double(datum->time.time_since_epoch()) << std::endl;
-            // ORUtils::Matrix4<float> input_pose;
-            // Eigen::Vector3f cur_pos = slow_pose_ptr->position;
-            // Eigen::Quaternionf ori = slow_pose_ptr->orientation;
-            // Eigen::Matrix3f cur_ori = ori.normalized().toRotationMatrix();
-
-            // input_pose.m[0] = cur_ori(0,0); input_pose.m[4] = cur_ori(0,1); input_pose.m[8] = cur_ori(0,2);  input_pose.m[12] = cur_pos(0);
-            // input_pose.m[1] = cur_ori(1,0); input_pose.m[5] = cur_ori(1,1); input_pose.m[9] = cur_ori(1,2);  input_pose.m[13] = cur_pos(1);
-            // input_pose.m[2] = cur_ori(2,0); input_pose.m[6] = cur_ori(2,1); input_pose.m[10] = cur_ori(2,2); input_pose.m[14] = cur_ori(2);
-            // input_pose.m[3] = 0.0f;         input_pose.m[7] = 0.0f;         input_pose.m[11] = 0.0f;         input_pose.m[15] = 1.0f;
-
-            // mainEngine->input_mat = input_pose;
-            //actual processing on the mainEngine
-            std::cout << "time " << std::to_string(duration2double(datum->time.time_since_epoch())) << std::endl;
-            mainEngine->currentTimeStamp = std::to_string(duration2double(datum->time.time_since_epoch()));
-
-            mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
+            std::cout << "datum_time: " << duration2double(datum->time.time_since_epoch()) << std::endl;
+            std::cout << "current_datum_time: " << std::to_string(duration2double(current_datum->time.time_since_epoch())) << std::endl;
             
-            if(count == 1017)
-            {
-                std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
-                mainEngine->SaveSceneToMesh(output_mesh_name.c_str());      
-                std::exit(0);
-            }
+            //actual processing on the mainEngine
+            mainEngine->currentTimeStamp = std::to_string(duration2double(current_datum->time.time_since_epoch()));
+            mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
+            prev_timestamp = slow_pose_ptr->sensor_time;
+            buffer.pop();
+            std::cout << "============================= Finished frame "<< count<<" ==============================" << std::endl;
 
 #ifndef COMPILE_WITHOUT_CUDA
         ORcudaSafeCall(cudaThreadSynchronize());
@@ -210,19 +198,19 @@ public:
             }
 
             // Publish reconstructed image
-            mainEngine->getImage(reconstructedImage, reconstructedImageType);
+            mainEngine->GetImage(reconstructedImage, reconstructedImageType);
             _m_reconstruction.put(_m_reconstruction.allocate(
-                cv::Mat{reconstructedImage->noDims.y,
-                        reconstructedImage->noDims.x,
-                        CV_8UC4,
-                        reconstructedImage->GetData(MEMORY_CPU)
-                }
+               cv::Mat{reconstructedImage->noDims.y,
+                       reconstructedImage->noDims.x,
+                       CV_8UC4,
+                       reconstructedImage->GetData(MEMORYDEVICE_CPU)
+               }
             ));
         }
 
         freqControl.framesSinceFreqChange++;
         std::cout << "\n";
-        count++;
+        
     }
     
     virtual ~infiniTAM() override {
@@ -260,7 +248,7 @@ private:
 
     // Reconstruction data
     ITMUChar4Image *reconstructedImage;
-    ITMLib::ITMMainEngine::GetImageType reconstructedImageType{ITMLib::ITMMainEngine::InfiniTAM_IMAGE_SCENERAYCAST};
+    ITMLib::ITMMainEngine::GetImageType reconstructedImageType{ITMLib::ITMMainEngine::InfiniTAM_IMAGE_COLOUR_FROM_VOLUME};
 
     std::string output_mesh_name;
 
@@ -272,13 +260,20 @@ private:
         std::vector<unsigned> *newBricks;
     };
 
+    std::queue<switchboard::ptr<const imu_cam_type>> buffer;
+    time_point prev_timestamp;
+    switchboard::ptr<const imu_cam_type> prev_datum;
+
     FrequencyControl freqControl;
     unsigned raycastingFreqDivisor;
     StopWatchInterface *timer_instant;
     StopWatchInterface *timer_average;
     ITMLib::ITMLibSettings *internalSettings;
 
-    int count;
+    int count = 1;
+    double total_time = 0;
+    double min_runtime = -9999999;
+    double max_runtime = 99999999;
 };
 
 PLUGIN_MAIN(infiniTAM);
