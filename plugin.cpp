@@ -1,7 +1,7 @@
-#include "common/plugin.hpp"
-#include "common/switchboard.hpp"
-#include "common/data_format.hpp"
-#include "common/phonebook.hpp"
+#include "illixr/plugin.hpp"
+#include "illixr/switchboard.hpp"
+#include "illixr/data_format.hpp"
+#include "illixr/phonebook.hpp"
 
 //add infinitam libraries
 #include "Apps/InfiniTAM_cli/CLIEngine.h"
