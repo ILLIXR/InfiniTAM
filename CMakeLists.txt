@@ -14,7 +14,7 @@ find_package(Threads REQUIRED)
 #include_directories( ${OpenCV_INCLUDE_DIRS} ) 
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-include_directories(${EIGEN3_INCLUDE_DIR} ${ILLIXR_ROOT})
+include_directories(${EIGEN3_INCLUDE_DIR} ${ILLIXR_ROOT} "/usr/local/cuda/include")
 message(ILLIXR_ROOT="${ILLIXR_ROOT}")
 
 # Prefer GLVND
