@@ -2,7 +2,7 @@
 # Top-level CMakeLists.txt for InfiniTAM #
 ##########################################
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.16)
 
 PROJECT(InfiniTAM)
 #set(THREADS_PREFER_PTHREAD_FLAG ON)
