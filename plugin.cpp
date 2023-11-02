@@ -57,8 +57,8 @@ public:
 		printf("================================InfiniTAM: Info received==========================\n");
 		if(datum->depth.has_value() && datum->rgb.has_value())
 		{
-		    cv::Mat cur_depth = datum->depth.value();
-		    cv::Mat cur_rgb = datum->rgb.value();
+		    cv::Mat cur_depth = datum->depth;
+		    cv::Mat cur_rgb = datum->rgb;
             
 		    std::string depth_type = type2str(cur_depth.type());
             
