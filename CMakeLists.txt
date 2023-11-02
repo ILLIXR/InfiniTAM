@@ -10,6 +10,8 @@ set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
 find_package(Threads REQUIRED)
 
 
+set(PLUGIN_NAME plugin.infinitam${ILLIXR_BUILD_SUFFIX})
+
 #find_package( OpenCV 3.4.6 EXACT REQUIRED )
 #include_directories( ${OpenCV_INCLUDE_DIRS} ) 
 
@@ -69,8 +71,9 @@ ADD_SUBDIRECTORY(ORUtils)
 message(STATUS "CUDA Include Directory: ${CUDA_INCLUDE_DIRS}")
 message(STATUS "CUDA Library Directory: ${CUDA_LIBRARY_DIRS}")
 
-add_library(plugin SHARED plugin.cpp)
+add_library(${PLUGIN_NAME} SHARED plugin.cpp)
 TARGET_LINK_LIBRARIES(plugin CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 #TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 target_link_libraries(plugin Eigen3::Eigen)  
 #target_link_libraries(plugin ${OpenCV_LIBS} Eigen3::Eigen)  
+install(TARGETS ${PLUGIN_NAME} DESTINATION lib)
