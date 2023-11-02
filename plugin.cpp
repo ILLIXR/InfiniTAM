@@ -55,7 +55,7 @@ public:
     void ProcessFrame(switchboard::ptr<const rgb_depth_type> datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
-		if(datum->depth.has_value() && datum->rgb.has_value())
+		if(!datum->depth.empty() && !datum->rgb.empty())
 		{
 		    cv::Mat cur_depth = datum->depth;
 		    cv::Mat cur_rgb = datum->rgb;
