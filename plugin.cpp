@@ -2,7 +2,7 @@
 #include "illixr/switchboard.hpp"
 #include "illixr/data_format.hpp"
 #include "illixr/phonebook.hpp"
-#include "illixr/open_cv_data_types.hpp"
+#include "illixr/opencv_data_types.hpp"
 
 //add infinitam libraries
 #include "Apps/InfiniTAM_cli/CLIEngine.h"
