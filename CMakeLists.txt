@@ -20,8 +20,8 @@ if (POLICY CMP0072)
   cmake_policy (SET CMP0072 NEW)
 endif(POLICY CMP0072)
 
-set(CMAKE_C_COMPILER "/usr/bin/clang-12")
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++-12")
+set(CMAKE_C_COMPILER "/usr/bin/clang-14")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-14")
 
 #################################
 # Specify the CMake module path #
