@@ -5,6 +5,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 PROJECT(InfiniTAM LANGUAGES CUDA CXX)
+set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
 #set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
