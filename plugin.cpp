@@ -89,7 +89,7 @@ public:
 	}
 
     virtual ~infinitam() override{
-        mainEngine->SaveSceneToMesh("infinitam.stl");
+        mainEngine->WriteSTL("infinitam.stl");
     }
     std::string type2str(int type) 
     {
