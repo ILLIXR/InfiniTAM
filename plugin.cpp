@@ -46,13 +46,13 @@ public:
         inputRGBImage = new ITMUChar4Image(calib->intrinsics_rgb.imgSize, true, false);
 
 
-        sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](switchboard::ptr<const rgb_depth_type> datum, std::size_t){ 
+        sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](switchboard::ptr<const rgb_depth_type>& datum, std::size_t){ 
             callback(datum);
         });
 		printf("================================InfiniTAM: setup finished==========================\n");
 	}
 
-    void callback(switchboard::ptr<const rgb_depth_type> datum)
+    void callback(switchboard::ptr<const rgb_depth_type>& datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
 		if(!datum->depth.empty() && !datum->rgb.empty())
