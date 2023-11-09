@@ -64,8 +64,8 @@ public:
             
 		    std::string rgb_type = type2str(cur_rgb.type());
             
-		    //printf("depth type %s\n", depth_type.c_str());
-		    //printf("rgb type%s\n", rgb_type.c_str());
+		    printf("depth type %s\n", depth_type.c_str());
+		    printf("rgb type%s\n", rgb_type.c_str());
 
 
 		    const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
