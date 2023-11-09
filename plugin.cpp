@@ -52,7 +52,7 @@ public:
 		printf("================================InfiniTAM: setup finished==========================\n");
 	}
 
-    void callback(switchboard::ptr<const rgb_depth_type>& datum)
+    void callback(const switchboard::ptr<const rgb_depth_type>& datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
 		if(!datum->depth.empty() && !datum->rgb.empty())
