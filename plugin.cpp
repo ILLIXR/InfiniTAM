@@ -124,6 +124,7 @@ private:
     ITMShortImage *inputRawDepthImage;
     ITMLib::ITMMainEngine *mainEngine;
     ITMLib::ITMRGBDCalib *calib;
+    switchboard::reader<rgb_depth_pose_type> _m_tum_data;
 
 };
 
