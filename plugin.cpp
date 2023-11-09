@@ -18,6 +18,7 @@ public:
 	infinitam(std::string name_, phonebook* pb_)
 		: plugin{name_, pb_}
 		, sb{pb->lookup_impl<switchboard>()}
+                , _m_tum_data{sb->get_reader<rgb_depth_pose_type>("rgb_depth_pose")}
     {
         //pyh still hardcode to read the calib file
         char cur_path[256];
