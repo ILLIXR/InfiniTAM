@@ -47,12 +47,12 @@ public:
 
 
         sb->schedule<rgb_depth_type>(id, "rgb_depth", [&](switchboard::ptr<const rgb_depth_type> datum, std::size_t){ 
-            this->ProcessFrame(datum);
+            callback(datum);
         });
 		printf("================================InfiniTAM: setup finished==========================\n");
 	}
 
-    void ProcessFrame(switchboard::ptr<const rgb_depth_type> datum)
+    void callback(switchboard::ptr<const rgb_depth_type> datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
 		if(!datum->depth.empty() && !datum->rgb.empty())
