@@ -126,6 +126,7 @@ private:
     ITMLib::ITMMainEngine *mainEngine;
     ITMLib::ITMRGBDCalib *calib;
     switchboard::reader<rgb_depth_pose_type> _m_tum_data;
+    bool is_first_pose=false;
 
 };
 
