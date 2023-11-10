@@ -57,7 +57,7 @@ public:
     void callback(const switchboard::ptr<const rgb_depth_pose_type> datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
-		if(!datum->depth.empty() && !datum->rgb.empty())
+		if(!datum->depth->empty() && !datum->rgb->empty())
 		{
 		    cv::Mat cur_depth = datum->depth;
 		    cv::Mat cur_rgb = datum->rgb;
