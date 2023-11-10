@@ -54,7 +54,7 @@ public:
         is_first_pose=true;
 	}
 
-    void callback(const switchboard::ptr<const rgb_depth_type>& datum)
+    void callback(const switchboard::ptr<const rgb_depth_pose_type>& datum)
 	{
 		printf("================================InfiniTAM: Info received==========================\n");
 		if(!datum->depth.empty() && !datum->rgb.empty())
