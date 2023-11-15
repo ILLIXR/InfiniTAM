@@ -16,7 +16,7 @@ set(PLUGIN_NAME plugin.infinitam${ILLIXR_BUILD_SUFFIX})
 #include_directories( ${OpenCV_INCLUDE_DIRS} ) 
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-include_directories(${EIGEN3_INCLUDE_DIR} ${ILLIXR_ROOT} "/usr/local/cuda/include" "/usr/include/opencv4")
+include_directories(${EIGEN3_INCLUDE_DIR} ${ILLIXR_ROOT} "/usr/local/cuda/include" ${OpenCV_INCLUDE_DIRS})
 message(ILLIXR_ROOT="${ILLIXR_ROOT}")
 
 # Prefer GLVND
@@ -72,7 +72,7 @@ message(STATUS "CUDA Include Directory: ${CUDA_INCLUDE_DIRS}")
 message(STATUS "CUDA Library Directory: ${CUDA_LIBRARY_DIRS}")
 
 add_library(${PLUGIN_NAME} SHARED plugin.cpp)
-TARGET_LINK_LIBRARIES(${PLUGIN_NAME} CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
+TARGET_LINK_LIBRARIES(${PLUGIN_NAME} ${OpenCV_LIBRARIES} CLIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 #TARGET_LINK_LIBRARIES(plugin UIEngine InputSource ITMLib MiniSlamGraphLib ORUtils FernRelocLib) 
 target_link_libraries(${PLUGIN_NAME} Eigen3::Eigen)  
 #target_link_libraries(plugin ${OpenCV_LIBS} Eigen3::Eigen)  
