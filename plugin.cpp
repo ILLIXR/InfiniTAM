@@ -55,7 +55,7 @@ public:
         inputRGBImage = new ITMUChar4Image(calib->intrinsics_rgb.imgSize, true, false);
 
         sb->schedule<scene_recon_type>(id, "scene_recon_data", [&](switchboard::ptr<const scene_recon_type> datum, std::size_t){ 
-            this-ProcessFrame(datum);
+            this->ProcessFrame(datum);
         });
 	printf("================================InfiniTAM: setup finished==========================\n");
         //pyh mesh generation destination
@@ -66,6 +66,7 @@ public:
     void ProcessFrame(const switchboard::ptr<const scene_recon_type> datum)
 	{
             printf("================================InfiniTAM: frame %d received==========================\n", frame_count);
+                cv::Mat cur_depth, cur_rgb;
 		if(!datum->depth.empty()){
                     frame_count++;
 		    cur_depth = datum->depth.clone();
@@ -78,15 +79,15 @@ public:
                     std::cerr<<"no depth image\n";
                     std::exit(0);
                 }
-                if(!data->rgb.empty()) {
+                if(!datum->rgb.empty()) {
                     //enable color
-                    cv::Mat cur_rgb = datum->rgb.value();
+                    cv::Mat cur_rgb = datum->rgb.value;
                     const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                     Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
                     std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
                 }
                 
-                ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProccessFrame(inputRGBImage, inputRawDepthImage);
+                ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
 
                 if (tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
                 {
