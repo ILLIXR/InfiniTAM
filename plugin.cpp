@@ -81,7 +81,7 @@ public:
                 }
                 if(!datum->rgb.empty()) {
                     //enable color
-                    cv::Mat cur_rgb = datum->rgb.value;
+                    cv::Mat cur_rgb = datum->rgb.clone();
                     const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                     Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
                     std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
