@@ -14,6 +14,7 @@ set(PLUGIN_NAME plugin.infinitam${ILLIXR_BUILD_SUFFIX})
 
 #find_package( OpenCV 3.4.6 EXACT REQUIRED )
 #include_directories( ${OpenCV_INCLUDE_DIRS} ) 
+find_package(OpenCV)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 include_directories(${EIGEN3_INCLUDE_DIR} ${ILLIXR_ROOT} "/usr/local/cuda/include" ${OpenCV_INCLUDE_DIRS})
