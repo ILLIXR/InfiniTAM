@@ -12,21 +12,26 @@
 #include "ORUtils/FileUtils.h"
 #include <signal.h>
 #include <unistd.h>
+
+//pyh: this is a plugin that uses the original ICP-version of InfiniTAM
+//Current tested dataset include TUM-RGBD and ScanNet
 using namespace ILLIXR;
 class infinitam : public plugin {
 public:
 	infinitam(std::string name_, phonebook* pb_)
 		: plugin{name_, pb_}
 		, sb{pb->lookup_impl<switchboard>()}
-                , _m_tum_data{sb->get_reader<rgb_depth_pose_type>("rgb_depth_pose")}
+                , _m_scene_recon_data{sb->get_reader<scene_recon_type>("scene_recon_data")}
     {
-        //pyh still hardcode to read the calib file
-        char cur_path[256];
-        getcwd(cur_path,256);
-        std::string calib_source = std::string(cur_path) + "/InfiniTAM/calib.txt";
+        //pyh for ScanNet, the calibration already exists for each data sequence
+        //However, for TUM-RGBD, one needs to create a custom one inside each sequence. We have provided one for freiburg1_desk
+        const char* illixr_data_c_str = std::getenv("ILLIXR_DATA");
+        std::string illixr_data = std::string{illixr_data_c_str};
+        const std::string calib_subpath = "/calibration.txt";
+        std::string calib_source{illixr_data + calib_subpath};
+        printf("calibration file path: %s\n", calib_source.c_str());
 
-        //read from calib.txt and convert to ITMRGBDCalib format
-        //modified from ITMLib/Objects/Camera/ITMCalibIo::readRGBDCalib(
+        //pyh: modified from ITMLib/Objects/Camera/ITMCalibIo::readRGBDCalib(
         calib = new ITMLib::ITMRGBDCalib();
         if(!readRGBDCalib(calib_source.c_str(), *calib))
         {
@@ -34,6 +39,9 @@ public:
         }
 
         ITMLib::ITMLibSettings *internalSettings = new ITMLib::ITMLibSettings();
+        //pyh for testing parameter purpose
+        std::cout<<"rgb calibration: "<<calib->intrinsics_rgb.projectionParamsSimple.all<<"\n";
+        std::cout<<"depth calibration: "<<calib->intrinsics_d.projectionParamsSimple.all<<"\n";
 
         mainEngine = new ITMLib::ITMBasicEngine<ITMVoxel, ITMVoxelIndex>(
                         internalSettings,
@@ -42,92 +50,75 @@ public:
                         calib->intrinsics_d.imgSize
                         );
 
-        //dims, allocate_cpu?, allocate_gpu?
+        //pyh: the three parameters passed are dims, allocate_cpu?, allocate_gpu?
         inputRawDepthImage = new ITMShortImage(calib->intrinsics_d.imgSize, true, false);
         inputRGBImage = new ITMUChar4Image(calib->intrinsics_rgb.imgSize, true, false);
 
-
-        sb->schedule<rgb_depth_pose_type>(id, "rgb_depth_pose", [&](switchboard::ptr<const rgb_depth_pose_type> datum, std::size_t){ 
-            callback(datum);
+        sb->schedule<scene_recon_type>(id, "scene_recon_data", [&](switchboard::ptr<const scene_recon_type> datum, std::size_t){ 
+            this-ProcessFrame(datum);
         });
-		printf("================================InfiniTAM: setup finished==========================\n");
-        is_first_pose=true;
+	printf("================================InfiniTAM: setup finished==========================\n");
+        //pyh mesh generation destination
+        //When running ILLIXR, the mesh will be generated in the ILLIXR home directory (one level up)
+       output_mesh_name="your_mesh_name.obj"; 
 	}
 
-    void callback(const switchboard::ptr<const rgb_depth_pose_type> datum)
+    void ProcessFrame(const switchboard::ptr<const scene_recon_type> datum)
 	{
-		printf("================================InfiniTAM: Info received==========================\n");
-		if(!datum->depth->empty() && !datum->rgb->empty())
-		{
-		    cv::Mat cur_depth = datum->depth;
-		    cv::Mat cur_rgb = datum->rgb;
-            
-		    std::string depth_type = type2str(cur_depth.type());
-            
-		    std::string rgb_type = type2str(cur_rgb.type());
-            
-		    printf("depth type %s\n", depth_type.c_str());
-		    printf("rgb type%s\n", rgb_type.c_str());
+            printf("================================InfiniTAM: frame %d received==========================\n", frame_count);
+		if(!datum->depth.empty()){
+                    frame_count++;
+		    cur_depth = datum->depth.clone();
+                    //pyh converting to the InfiniTAM expected data structure 
+                    const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
 
+                    short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
+                    std::memcpy(cur_depth_head, depth_frame, sizeof(short) * inputRawDepthImage->dataSize);
+                } else {
+                    std::cerr<<"no depth image\n";
+                    std::exit(0);
+                }
+                if(!data->rgb.empty()) {
+                    //enable color
+                    cv::Mat cur_rgb = datum->rgb.value();
+                    const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
+                    Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
+                    std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
+                }
+                
+                ITMLib::ITMTrackingState::TrackingResult tracking_status = mainEngine->ProccessFrame(inputRGBImage, inputRawDepthImage);
 
-		    const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
-		    const uint16_t *depth_frame = reinterpret_cast<const uint16_t*>(cur_depth.datastart);
+                if (tracking_status == ITMLib::ITMTrackingState::TRACKING_FAILED)
+                {
+                    std::cerr<<"tracking failed at frame "<<frame_count<<std::endl;
+                    std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
+                    mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
+                    std::exit(0);
+                }
 
-		    short *cur_depth_head = inputRawDepthImage->GetData(MEMORYDEVICE_CPU);
-            Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
-
-
-		    std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
-		    std::memcpy(cur_depth_head, depth_frame, sizeof(short)  * inputRawDepthImage->dataSize);
-		    mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
-#ifndef COMPILE_WITHOUT_CUDA
-            ORcudaSafeCall(cudaThreadSynchronize());
-#endif
-		}
-		else
-		{
-		    printf("missing either rgb or depth or both\n");
-		}
-	}
+                ORcudaSafeCall(cudaThreadSynchronize());
+                if (datum->last_frame) {
+                    std::cout<<"Data sequence finished,\n producing mesh: "<<output_mesh_name<<std::endl;
+                    mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
+                }
+        }
 
     virtual ~infinitam() override{
-        mainEngine->SaveSceneToMesh("infinitam.obj");
+        std::cout<<"producing mesh: "<<output_mesh_name<<std::endl;
+        mainEngine->SaveSceneToMesh(output_mesh_name.c_str());
     }
-    std::string type2str(int type) 
-    {
-        std::string r;
-
-        uchar depth = type & CV_MAT_DEPTH_MASK;
-        uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-        switch ( depth ) 
-        {
-            case CV_8U:  r = "8U"; break;
-            case CV_8S:  r = "8S"; break;
-            case CV_16U: r = "16U"; break;
-            case CV_16S: r = "16S"; break;
-            case CV_32S: r = "32S"; break;
-            case CV_32F: r = "32F"; break;
-            case CV_64F: r = "64F"; break;
-            default:     r = "User"; break;
-        }
-        r += "C";
-        r += (chans+'0');
-
-         return r;
-    }
-
     
 private:
-	const std::shared_ptr<switchboard> sb;
-
-	ITMUChar4Image *inputRGBImage;
+    const std::shared_ptr<switchboard> sb;
+    switchboard::reader<scene_recon_type> _m_scene_recon_data;
+    ITMUChar4Image *inputRGBImage;
     ITMShortImage *inputRawDepthImage;
     ITMLib::ITMMainEngine *mainEngine;
     ITMLib::ITMRGBDCalib *calib;
-    switchboard::reader<rgb_depth_pose_type> _m_tum_data;
-    bool is_first_pose=false;
-
+    unsigned frame_count=0;
+    std::ofstream adjusted_file;
+    std::vector<std::vector<float>> gt_array;
+    std::string output_mesh_name;
 };
 
 PLUGIN_MAIN(infinitam)
