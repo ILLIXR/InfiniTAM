@@ -79,9 +79,9 @@ public:
                     std::cerr<<"no depth image\n";
                     std::exit(0);
                 }
-                if(!datum->rgb.empty()) {
+                if(!datum->rgb.value().empty()) {
                     //enable color
-                    cv::Mat cur_rgb = datum->rgb.clone();
+                    cv::Mat cur_rgb = datum->rgb.value().clone();
                     const Vector4u *color_frame = reinterpret_cast<const Vector4u*>(cur_rgb.datastart);
                     Vector4u *cur_rgb_head = inputRGBImage->GetData(MEMORYDEVICE_CPU);
                     std::memcpy(cur_rgb_head, color_frame, sizeof(Vector4u) *inputRGBImage->dataSize);
