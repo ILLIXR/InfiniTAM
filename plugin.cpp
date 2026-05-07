@@ -96,7 +96,7 @@ infinitam::infinitam(const std::string& name_, phonebook *pb_)
         if (temp != 0) {
             thread_count_ = temp;
         } else {
-            spdlog::get("illixr")->error("infinitam: MESH_COMPRESS_PARALLELISM not set; using default {}",
+            spdlog::get("illixr")->warn("infinitam: MESH_COMPRESS_PARALLELISM not set; using default {}",
                                          thread_count_);
         }
     } catch (...) {
@@ -109,7 +109,7 @@ infinitam::infinitam(const std::string& name_, phonebook *pb_)
         if (temp != 0) {
             fps_ = temp;
         } else {
-            spdlog::get("illixr")->error("infinitam: FPS not set; using default {}", fps_);
+            spdlog::get("illixr")->warn("infinitam: FPS not set; using default {}", fps_);
         }
     } catch (...) {
         spdlog::get("illixr")->error("infinitam: FPS invalid, using default {}", fps_);

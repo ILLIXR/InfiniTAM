@@ -41,7 +41,7 @@ IF(WITH_CUDA)
     # the host flag -std=c++11 is automatically propagated to nvcc. Manually setting it prevents
     # the project from building.
     IF(${CMAKE_VERSION} VERSION_LESS 3.5)
-      SET(CUDA_NVCC_FLAGS -std=c++11; ${CUDA_NVCC_FLAGS})
+      SET(CUDA_NVCC_FLAGS -std=c++17; ${CUDA_NVCC_FLAGS})
     ENDIF()
 
     # Work around an Ubuntu 16.04 compilation error.
@@ -49,7 +49,7 @@ IF(WITH_CUDA)
       ADD_DEFINITIONS(-D_FORCE_INLINES)
     ENDIF()
 
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-allow-unsupported-compiler;-lineinfo;-std=c++14")
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-allow-unsupported-compiler;-lineinfo;-std=c++17")
   ENDIF()
 
   # If not on Windows, disable some annoying nvcc warnings.
