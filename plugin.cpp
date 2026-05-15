@@ -348,7 +348,7 @@ void infinitam::process_frame(switchboard::ptr<const scene_recon_type>& datum) {
                     frame_count_);
 
         }
-        ORcudaSafeCall(cudaThreadSynchronize());
+        ORcudaSafeCall(cudaDeviceSynchronize());
     } else {
         if (datum->depth.empty()) {
             spdlog::get("illixr")->info("depth empty");
