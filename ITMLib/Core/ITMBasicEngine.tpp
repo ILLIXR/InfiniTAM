@@ -925,7 +925,8 @@ Vector2i ITMBasicEngine<TVoxel,TIndex>::GetImageSize(void) const
 template <typename TVoxel, typename TIndex>
 void ITMBasicEngine<TVoxel,TIndex>::GetMesh(ITMMesh *out_mesh, int mesh_type)
 {
-	delete out_mesh->triangles;
+	// The mesh owns its triangle storage. Meshing engines can retain capacity
+	// between extractions and replace the allocation only when it must grow.
 	meshingEngine->MeshScene(out_mesh, scene, mesh_type);
 }
 

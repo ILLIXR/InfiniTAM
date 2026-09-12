@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
+#include <stdexcept>
 
 #include "../Shared/ITMMeshingEngine_Shared.h"
 #include "../../../Utils/ITMCUDAUtils.h"
@@ -96,21 +98,49 @@ void ITMMeshingEngine_CUDA<TVoxel, ITMVoxelBlockHash>::MeshScene(ITMMesh *mesh, 
                 }
 	}
 
-	{ 
+	if (counter == 0) {
+		mesh->noTotalTriangles = 0;
+		return;
+	}
+
+	{
 		dim3 cudaBlockSize(SDF_BLOCK_SIZE, SDF_BLOCK_SIZE, SDF_BLOCK_SIZE);
                 dim3 gridSize((counter + 15) / 16, 16);  // Use ceiling division to handle cases where counter < 16
 
-		//pyh this can be changed if to larger number if necessary
-                unsigned estimated_faces = counter * 100;
-		mesh->triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(estimated_faces, mesh->memoryType);
-		int noMaxTriangles = estimated_faces;
-		ITMMesh::Triangle *triangles = mesh->triangles->GetData(MEMORYDEVICE_CUDA);
+		const auto ensure_capacity = [mesh](size_t required) {
+			const size_t maximum = static_cast<size_t>(std::numeric_limits<int>::max());
+			if (required > maximum)
+				throw std::overflow_error("Extracted mesh exceeds the triangle index capacity");
+			const size_t previous = mesh->triangles ? mesh->triangles->dataSize : 0;
+			if (previous < required) {
+				const size_t capacity = std::max(required, std::min(maximum, previous + previous / 2));
+				auto *replacement = new ORUtils::MemoryBlock<ITMMesh::Triangle>(capacity, mesh->memoryType);
+				delete mesh->triangles;
+				mesh->triangles = replacement;
+			}
+			mesh->noMaxTriangles = static_cast<unsigned>(mesh->triangles->dataSize);
+		};
 
-		meshScene_device<TVoxel> << <gridSize, cudaBlockSize >> >(triangles, noTriangles_device, factor, noTotalEntries, noMaxTriangles,
-			visibleBlockGlobalPos_device, localVBA, hashTable);
-		ORcudaKernelCheck;
+		// Retain the existing estimate as a starting capacity, and retain the
+		// allocation across extractions. Each emitted triangle overwrites its
+		// positions and block tag, so the retained buffer needs no clearing.
+		ensure_capacity(static_cast<size_t>(counter) * 100);
+		while (true) {
+			ITMMesh::Triangle *triangles = mesh->triangles->GetData(MEMORYDEVICE_CUDA);
+			const int capacity = static_cast<int>(mesh->triangles->dataSize);
+			meshScene_device<TVoxel> << <gridSize, cudaBlockSize >> >(triangles, noTriangles_device, factor, noTotalEntries, capacity,
+				visibleBlockGlobalPos_device, localVBA, hashTable);
+			ORcudaKernelCheck;
+			ORcudaSafeCall(cudaMemcpy(&mesh->noTotalTriangles, noTriangles_device, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+			if (mesh->noTotalTriangles < static_cast<unsigned>(capacity))
+				break;
 
-		ORcudaSafeCall(cudaMemcpy(&mesh->noTotalTriangles, noTriangles_device, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+			// The kernel counts every triangle even if the initial estimate is
+			// too small. Grow and retry before exposing a partially written mesh.
+			// Its existing write guard leaves one spare triangle at the end.
+			ensure_capacity(static_cast<size_t>(mesh->noTotalTriangles) + 1);
+			ORcudaSafeCall(cudaMemset(noTriangles_device, 0, sizeof(unsigned int)));
+		}
 	}
 }
 
