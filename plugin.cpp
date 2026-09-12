@@ -332,7 +332,7 @@ void infinitam::process_frame(switchboard::ptr<const scene_recon_type>& datum) {
                 }
 
                 mesh_writer_.put(mesh_writer_.allocate<mesh_type>(
-                        mesh_type{static_cast<uint>(omp_get_thread_num()), std::move(ply_reader), scene_id, 0,
+                        mesh_type{thread_id, std::move(ply_reader), scene_id, thread_id,
                                   numThreads, per_faces, per_vertices, set_active}));
 
             }
