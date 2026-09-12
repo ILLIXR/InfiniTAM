@@ -222,7 +222,7 @@ void infinitam::process_frame(switchboard::ptr<const scene_recon_type>& datum) {
                 } else {
                     mesh_writer_.put(mesh_writer_.allocate<mesh_type>(
                             mesh_type{thread_id, std::move(draco_mesh), scene_id, thread_id,
-                                      numThreads, per_faces, per_vertices, set_active}));
+                                      numThreads, per_faces, per_vertices, set_active, true}));
                 }
 
             }

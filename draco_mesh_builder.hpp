@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
+#include <draco_illixr/core/hash_utils.h>
 #include <draco_illixr/mesh/mesh.h>
 #include <limits>
 #include <memory>
@@ -18,8 +20,19 @@ struct voxel_block_dictionary_hash {
     }
 };
 
-// Build each extraction chunk independently. Deduplication stays on the
-// compression worker, after the chunk has been published.
+struct draco_point_dictionary_hash {
+    size_t operator()(const std::array<uint32_t, 2>& attributes) const {
+        uint32_t hash = 0;
+        for (const auto value : attributes)
+            hash = static_cast<uint32_t>(draco_illixr::HashCombine(value, hash));
+        return hash;
+    }
+};
+
+// Follow Draco's DeduplicateFormattedValues and DeduplicatePointIds: compare
+// exact attribute bits, keep first-occurrence IDs, and identify a point by all
+// its attribute-value indices. Build each independently owned chunk directly
+// in that form so the compression worker can proceed to encoding.
 inline std::unique_ptr<draco_illixr::Mesh> make_draco_mesh(const ITMLib::ITMMesh::Triangle* triangles, unsigned first_triangle,
                                                            unsigned num_faces) {
     using namespace draco_illixr;
@@ -33,38 +46,71 @@ inline std::unique_ptr<draco_illixr::Mesh> make_draco_mesh(const ITMLib::ITMMesh
 
     GeometryAttribute position;
     position.Init(GeometryAttribute::POSITION, nullptr, 3, DT_FLOAT32, false, sizeof(float) * 3, 0);
-    const int position_id = mesh->AddAttribute(position, true, num_vertices);
+    const int position_id = mesh->AddAttribute(position, false, num_vertices);
     if (position_id < 0) {
         return nullptr;
     }
     auto* positions    = mesh->attribute(position_id);
     auto  voxel_blocks = std::make_unique<PointAttribute>();
     voxel_blocks->Init(GeometryAttribute::GENERIC, 1, DT_INT32, false, num_faces);
+    voxel_blocks->SetExplicitMapping(num_vertices);
+    using PositionBits = std::array<uint32_t, 3>;
+    using PointValues  = std::array<uint32_t, 2>;
+    std::unordered_map<PositionBits, AttributeValueIndex, HashArray<PositionBits>>   position_ids;
+    std::unordered_map<PointValues, PointIndex, draco_point_dictionary_hash>         point_ids(num_vertices);
     std::unordered_map<std::array<int32_t, 3>, int32_t, voxel_block_dictionary_hash> block_ids;
     std::vector<int32_t>                                                             dictionary;
     block_ids.reserve(256);
     dictionary.reserve(256 * 3);
 
     for (unsigned face = 0; face < num_faces; ++face) {
-        const auto& triangle = triangles[first_triangle + face];
-        const float p0[]     = {triangle.p0.x, triangle.p0.y, triangle.p0.z};
-        const float p1[]     = {triangle.p1.x, triangle.p1.y, triangle.p1.z};
-        const float p2[]     = {triangle.p2.x, triangle.p2.y, triangle.p2.z};
-        positions->SetAttributeValue(AttributeValueIndex(face * 3), p0);
-        positions->SetAttributeValue(AttributeValueIndex(face * 3 + 1), p1);
-        positions->SetAttributeValue(AttributeValueIndex(face * 3 + 2), p2);
-        // Preserve the winding used by the PLY handoff and ITMMesh::WriteOBJ.
-        mesh->SetFace(FaceIndex(face), {PointIndex(face * 3 + 2), PointIndex(face * 3 + 1), PointIndex(face * 3)});
+        const auto&                  triangle = triangles[first_triangle + face];
         const std::array<int32_t, 3> block{triangle.vb_info.x, triangle.vb_info.y, triangle.vb_info.z};
         const auto                   next_id  = static_cast<int32_t>(dictionary.size() / 3);
         const auto                   inserted = block_ids.try_emplace(block, next_id);
         if (inserted.second) {
             dictionary.insert(dictionary.end(), block.begin(), block.end());
+            voxel_blocks->SetAttributeValue(AttributeValueIndex(next_id), &next_id);
         }
-        voxel_blocks->SetAttributeValue(AttributeValueIndex(face), &inserted.first->second);
+        const uint32_t                block_value = static_cast<uint32_t>(inserted.first->second);
+        const ORUtils::Vector3<float> corners[]   = {triangle.p0, triangle.p1, triangle.p2};
+        PointIndex                    points[3];
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            const float  value[] = {corners[corner].x, corners[corner].y, corners[corner].z};
+            PositionBits bits;
+            std::memcpy(bits.data(), value, sizeof(value));
+            auto position_it = position_ids.find(bits);
+            if (position_it == position_ids.end()) {
+                const AttributeValueIndex id(static_cast<uint32_t>(position_ids.size()));
+                position_it = position_ids.emplace(bits, id).first;
+                positions->SetAttributeValue(id, value);
+            }
+            const PointValues values{position_it->second.value(), block_value};
+            auto              point_it = point_ids.find(values);
+            if (point_it == point_ids.end()) {
+                const PointIndex id(static_cast<uint32_t>(point_ids.size()));
+                point_it = point_ids.emplace(values, id).first;
+                positions->SetPointMapEntry(id, position_it->second);
+                voxel_blocks->SetPointMapEntry(id, AttributeValueIndex(block_value));
+            }
+            points[corner] = point_it->second;
+        }
+        // Preserve the input faces and the winding used by ITMMesh::WriteOBJ.
+        mesh->SetFace(FaceIndex(face), {points[2], points[1], points[0]});
     }
 
-    const int block_id = mesh->AddPerFaceAttribute(std::move(voxel_blocks));
+    const auto point_count = static_cast<uint32_t>(point_ids.size());
+    mesh->set_num_points(point_count);
+    // Draco leaves an empty position attribute without a backing buffer.
+    if (num_vertices != 0)
+        positions->Resize(position_ids.size());
+    if (position_ids.size() == num_vertices)
+        positions->SetIdentityMapping();
+    else
+        positions->SetExplicitMapping(point_count);
+    voxel_blocks->Resize(dictionary.size() / 3);
+    voxel_blocks->SetExplicitMapping(point_count);
+    const int block_id = mesh->AddAttribute(std::move(voxel_blocks));
     if (block_id < 0) {
         return nullptr;
     }
