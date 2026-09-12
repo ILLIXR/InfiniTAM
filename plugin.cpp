@@ -12,9 +12,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-#include "draco_illixr/io/ply_reader.h"
-#include "draco_illixr/io/ply_property_writer.h"
-#include "draco_illixr/io/file_utils.h"
+#include "draco_mesh_builder.hpp"
 
 using namespace ILLIXR;
 using namespace ILLIXR::data_format;
@@ -214,126 +212,18 @@ void infinitam::process_frame(switchboard::ptr<const scene_recon_type>& datum) {
             {
                 unsigned thread_id = omp_get_thread_num();
 
-                unsigned startTriangle = thread_id * trianglesPerThread;
+                unsigned startTriangle = std::min(thread_id * trianglesPerThread, face_number);
                 unsigned endTriangle = std::min((thread_id + 1) * trianglesPerThread, face_number);
                 unsigned per_faces = endTriangle - startTriangle;
                 unsigned per_vertices = per_faces * 3;
-                std::unique_ptr<draco_illixr::PlyReader> ply_reader(new draco_illixr::PlyReader());
-
-                ply_reader->format_ = draco_illixr::PlyReader::kAscii;
-                ply_reader->element_index_["vertex"] = 0;
-                ply_reader->elements_.emplace_back("vertex", per_vertices);
-                ply_reader->elements_.back().AddProperty(draco_illixr::PlyProperty("x", draco_illixr::DT_FLOAT32, draco_illixr::DT_INVALID));
-                ply_reader->elements_.back().AddProperty(draco_illixr::PlyProperty("y", draco_illixr::DT_FLOAT32, draco_illixr::DT_INVALID));
-                ply_reader->elements_.back().AddProperty(draco_illixr::PlyProperty("z", draco_illixr::DT_FLOAT32, draco_illixr::DT_INVALID));
-
-                ply_reader->element_index_["face"] = 1;
-                ply_reader->elements_.emplace_back("face", per_faces);
-
-                ply_reader->elements_.back().AddProperty(
-                        draco_illixr::PlyProperty("vertex_indices", draco_illixr::DT_INT32, draco_illixr::DT_UINT8));
-
-                ply_reader->elements_.back().AddProperty(
-                        draco_illixr::PlyProperty("vb_x", draco_illixr::DT_INT32, draco_illixr::DT_INVALID));
-                ply_reader->elements_.back().AddProperty(
-                        draco_illixr::PlyProperty("vb_y", draco_illixr::DT_INT32, draco_illixr::DT_INVALID));
-                ply_reader->elements_.back().AddProperty(
-                        draco_illixr::PlyProperty("vb_z", draco_illixr::DT_INT32, draco_illixr::DT_INVALID));
-
-                draco_illixr::PlyElement &vertex_element = ply_reader->elements_[0];
-                draco_illixr::PlyElement &face_element = ply_reader->elements_[1];
-
-                for (unsigned entry = startTriangle; entry < endTriangle; ++entry) {
-                    for (int i = 0; i < vertex_element.num_properties(); ++i) {
-                        draco_illixr::PlyProperty &prop = vertex_element.property(i);
-                        draco_illixr::PlyPropertyWriter<float> prop_writer(&prop);
-                        switch (i) {
-                            case 0:
-                                prop_writer.PushBackValue(triangleArray[entry].p0.x);
-                                break;
-                            case 1:
-                                prop_writer.PushBackValue(triangleArray[entry].p0.y);
-                                break;
-                            case 2:
-                                prop_writer.PushBackValue(triangleArray[entry].p0.z);
-                                break;
-                            default:
-                                spdlog::get("illixr")->error("should not happen #1 ");
-                                break;
-                        }
-                    }
-                    for (int i = 0; i < vertex_element.num_properties(); ++i) {
-                        draco_illixr::PlyProperty &prop = vertex_element.property(i);
-                        draco_illixr::PlyPropertyWriter<float> prop_writer(&prop);
-                        switch (i) {
-                            case 0:
-                                prop_writer.PushBackValue(triangleArray[entry].p1.x);
-                                break;
-                            case 1:
-                                prop_writer.PushBackValue(triangleArray[entry].p1.y);
-                                break;
-                            case 2:
-                                prop_writer.PushBackValue(triangleArray[entry].p1.z);
-                                break;
-                            default:
-                                spdlog::get("illixr")->error("should not happen #1 ");
-                                break;
-                        }
-                    }
-                    for (int i = 0; i < vertex_element.num_properties(); ++i) {
-                        draco_illixr::PlyProperty &prop = vertex_element.property(i);
-                        draco_illixr::PlyPropertyWriter<float> prop_writer(&prop);
-                        switch (i) {
-                            case 0:
-                                prop_writer.PushBackValue(triangleArray[entry].p2.x);
-                                break;
-                            case 1:
-                                prop_writer.PushBackValue(triangleArray[entry].p2.y);
-                                break;
-                            case 2:
-                                prop_writer.PushBackValue(triangleArray[entry].p2.z);
-                                break;
-                            default:
-                                spdlog::get("illixr")->error("should not happen #1 ");
-                                break;
-                        }
-                    }
+                auto draco_mesh = make_draco_mesh(triangleArray, startTriangle, per_faces);
+                if (!draco_mesh) {
+                    spdlog::get("illixr")->error("Failed to construct scene {} chunk {}", scene_id, thread_id);
+                } else {
+                    mesh_writer_.put(mesh_writer_.allocate<mesh_type>(
+                            mesh_type{thread_id, std::move(draco_mesh), scene_id, thread_id,
+                                      numThreads, per_faces, per_vertices, set_active}));
                 }
-
-                for (int entry = 0; entry < face_element.num_entries(); ++entry) {
-                    int actual_entry = static_cast<int>(startTriangle) + entry;
-                    for (int i = 0; i < face_element.num_properties(); ++i) {
-                        draco_illixr::PlyProperty &prop = face_element.property(i);
-                        draco_illixr::PlyPropertyWriter<int32_t> prop_writer(&prop);
-                        switch (i) {
-                            case 0:
-                                prop.list_data_.push_back(static_cast<long>(prop.data_.size()) / prop.data_type_num_bytes_);
-                                prop.list_data_.push_back(3);
-                                int val = entry * 3;
-                                int val_1 = entry * 3 + 1;
-                                int val_2 = entry * 3 + 2;
-                                prop_writer.PushBackValue(val_2);
-                                prop_writer.PushBackValue(val_1);
-                                prop_writer.PushBackValue(val);
-                                break;
-                            case 1:
-                                prop_writer.PushBackValue(triangleArray[actual_entry].vb_info.x);
-                                break;
-                            case 2:
-                                prop_writer.PushBackValue(triangleArray[actual_entry].vb_info.y);
-                                break;
-                            case 3:
-                                prop_writer.PushBackValue(triangleArray[actual_entry].vb_info.z);
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-
-                mesh_writer_.put(mesh_writer_.allocate<mesh_type>(
-                        mesh_type{thread_id, std::move(ply_reader), scene_id, thread_id,
-                                  numThreads, per_faces, per_vertices, set_active}));
 
             }
 
