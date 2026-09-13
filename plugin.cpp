@@ -165,16 +165,21 @@ void infinitam::process_frame(switchboard::ptr<const scene_recon_type>& datum) {
             // std::string merge_name = this->scene_number_+ "_" + std::to_string(frame_count_) +".obj";
             // mesh_->WriteOBJ(merge_name.c_str());
 
-            if (!cpu_triangles_ || cpu_triangles_->dataSize < mesh_->noTotalTriangles) {
-                cpu_triangles_.reset(
-                        new ORUtils::MemoryBlock<ITMLib::ITMMesh::Triangle>(mesh_->noTotalTriangles, MEMORYDEVICE_CPU));
-            }
+            // An unchanged or initially empty volume still completes an update,
+            // but MeshScene may not have allocated a triangle buffer yet.
+            if (mesh_->noTotalTriangles != 0) {
+                if (!cpu_triangles_ || cpu_triangles_->dataSize < mesh_->noTotalTriangles) {
+                    cpu_triangles_.reset(
+                            new ORUtils::MemoryBlock<ITMLib::ITMMesh::Triangle>(mesh_->noTotalTriangles, MEMORYDEVICE_CPU));
+                }
 
-            cpu_triangles_->DirectSetFrom(
-                    mesh_->triangles,
-                    ORUtils::MemoryBlock<ITMLib::ITMMesh::Triangle>::CUDA_TO_CPU,
-                    mesh_->noTotalTriangles);
-            ITMLib::ITMMesh::Triangle *triangleArray = cpu_triangles_->GetData(MEMORYDEVICE_CPU);
+                cpu_triangles_->DirectSetFrom(
+                        mesh_->triangles,
+                        ORUtils::MemoryBlock<ITMLib::ITMMesh::Triangle>::CUDA_TO_CPU,
+                        mesh_->noTotalTriangles);
+            }
+            ITMLib::ITMMesh::Triangle *triangleArray =
+                    cpu_triangles_ ? cpu_triangles_->GetData(MEMORYDEVICE_CPU) : nullptr;
 
             unsigned face_number = mesh_->noTotalTriangles;
             unsigned scene_id = (frame_count_ / fps_) - 1;

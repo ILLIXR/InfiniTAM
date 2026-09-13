@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "../Shared/ITMMeshingEngine_Shared.h"
+#include "../../../Objects/Scene/ITMMeshDirtyTracking.h"
 #include "../../../Utils/ITMCUDAUtils.h"
 #include "../../../../ORUtils/CUDADefines.h"
 #include <thrust/sort.h>
@@ -40,7 +41,7 @@ __global__ void findAllocateBlocks(Vector4s *visibleBlockGlobalPos, const ITMHas
 		}
 
 		//pyh marching on active region
-		else if(mesh_type ==1 && currentHashEntry.fused_counter > 0){
+		else if(mesh_type ==1 && meshOwnerNeedsUpdate(currentHashEntry, hashTable)){
 			int idx = atomicAdd(&updateCounter, 1);
 			visibleBlockGlobalPos[idx] = Vector4s(currentHashEntry.pos.x, currentHashEntry.pos.y, currentHashEntry.pos.z, 1);
 		}
@@ -161,6 +162,7 @@ __global__ void meshScene_device(ITMMesh::Triangle *triangles, unsigned int *noT
 	int noMaxTriangles, const Vector4s *visibleBlockGlobalPos, const TVoxel *localVBA, const ITMHashEntry *hashTable)
 {
 	const Vector4s globalPos_4s = visibleBlockGlobalPos[blockIdx.x + gridDim.x * blockIdx.y];
+	if (globalPos_4s.w == 0) return;
 
 	Vector3i globalPos = Vector3i(globalPos_4s.x, globalPos_4s.y, globalPos_4s.z) * SDF_BLOCK_SIZE;
 

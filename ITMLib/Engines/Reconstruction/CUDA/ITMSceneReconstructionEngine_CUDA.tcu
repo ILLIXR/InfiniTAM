@@ -7,6 +7,7 @@
 
 #include "../Shared/ITMSceneReconstructionEngine_Shared.h"
 #include "../../../Objects/RenderStates/ITMRenderState_VH.h"
+#include "../../../Objects/Scene/ITMMeshDirtyTracking.h"
 #include "../../../Utils/ITMCUDAUtils.h"
 
 struct AllocationTempData {
@@ -33,7 +34,7 @@ namespace
 {
 
 template<class TVoxel, bool stopMaxW>
-__global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *hashTable, int *noVisibleEntryIDs,
+__global__ void integrateIntoScene_device(TVoxel *localVBA, ITMHashEntry *hashTable, int *noVisibleEntryIDs,
 	const Vector4u *rgb, Vector2i rgbImgSize, const float *depth, const float *confidence, Vector2i imgSize, Matrix4f M_d, Matrix4f M_rgb, Vector4f projParams_d,
 	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW, FrameInfo *frameInfo);
 
@@ -562,14 +563,14 @@ __global__ void integrateIntoScene_device(TVoxel *voxelArray, const ITMPlainVoxe
 }
 
 template<class TVoxel, bool stopMaxW>
-__global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *hashTable, int *visibleEntryIDs,
+__global__ void integrateIntoScene_device(TVoxel *localVBA, ITMHashEntry *hashTable, int *visibleEntryIDs,
 	const Vector4u *rgb, Vector2i rgbImgSize, const float *depth, const float *confidence, Vector2i depthImgSize, Matrix4f M_d, Matrix4f M_rgb, Vector4f projParams_d,
 	Vector4f projParams_rgb, float _voxelSize, float mu, int maxW, FrameInfo *frameInfo)
 {
 	Vector3i globalPos;
 	int entryId = visibleEntryIDs[blockIdx.x];
 
-	const ITMHashEntry &currentHashEntry = hashTable[entryId];
+	ITMHashEntry &currentHashEntry = hashTable[entryId];
 
 	if (currentHashEntry.ptr < 0) return;
 
@@ -583,21 +584,37 @@ __global__ void integrateIntoScene_device(TVoxel *localVBA, const ITMHashEntry *
 
 	locId = x + y * SDF_BLOCK_SIZE + z * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 
-	if (stopMaxW) if (localVoxelBlock[locId].w_depth == maxW) return;
-	//if (approximateIntegration) if (localVoxelBlock[locId].w_depth != 0) return;
+	// Every thread participates in the reduction, including voxels whose
+	// integration stops at max weight. Weight-only changes do not affect this
+	// mesher: its vertices depend on stored SDF values, not fusion weights.
+	unsigned int dirty = 0;
+	if (!stopMaxW || localVoxelBlock[locId].w_depth != maxW) {
+		pt_model.x = (float)(globalPos.x + x) * _voxelSize;
+		pt_model.y = (float)(globalPos.y + y) * _voxelSize;
+		pt_model.z = (float)(globalPos.z + z) * _voxelSize;
+		pt_model.w = 1.0f;
 
-	pt_model.x = (float)(globalPos.x + x) * _voxelSize;
-	pt_model.y = (float)(globalPos.y + y) * _voxelSize;
-	pt_model.z = (float)(globalPos.z + z) * _voxelSize;
-	pt_model.w = 1.0f;
+		const auto previous_sdf = localVoxelBlock[locId].sdf;
+		computeUpdatedVoxelDepthInfoWithStatistics(localVoxelBlock[locId], pt_model, M_d, projParams_d, mu, maxW, depth, depthImgSize, frameInfo);
+		if (previous_sdf != localVoxelBlock[locId].sdf)
+			dirty = meshDirtyOwnersForVoxel(x, y, z);
+	}
 
-	// ComputeUpdatedVoxelInfo<TVoxel::hasColorInformation, TVoxel::hasConfidenceInformation, TVoxel>::compute(localVoxelBlock[locId],
-	// 	pt_model, M_d, projParams_d, M_rgb, projParams_rgb, mu, maxW, depth, confidence, depthImgSize, rgb, rgbImgSize);
-
-	float eta = computeUpdatedVoxelDepthInfoWithStatistics(localVoxelBlock[locId], pt_model, M_d, projParams_d, mu, maxW, depth, depthImgSize, frameInfo);
-	if ((eta > mu) || (fabs(eta / mu) > 0.25f))
-		return;
-	//computeUpdatedVoxelColorInfo(localVoxelBlock[locId], pt_model, M_rgb, projParams_rgb, mu, maxW, eta, rgb, rgbImgSize);
+	// One CTA integrates each visible block. Reduce within warps, then within
+	// the block, and accumulate once; no per-voxel global atomics are needed.
+	__shared__ unsigned int warp_masks[SDF_BLOCK_SIZE3 / 32];
+	const int lane = locId & 31, warp = locId >> 5;
+	for (int offset = 16; offset > 0; offset >>= 1)
+		dirty |= __shfl_down_sync(0xffffffffu, dirty, offset);
+	if (lane == 0) warp_masks[warp] = dirty;
+	__syncthreads();
+	if (warp == 0) {
+		dirty = lane < SDF_BLOCK_SIZE3 / 32 ? warp_masks[lane] : 0;
+		for (int offset = 16; offset > 0; offset >>= 1)
+			dirty |= __shfl_down_sync(0xffffffffu, dirty, offset);
+		if (lane == 0)
+			currentHashEntry.mesh_dirty_mask |= static_cast<unsigned char>(dirty);
+	}
 }
 
 __global__ void buildHashAllocAndVisibleType_device(uchar *entriesAllocType, uchar *entriesVisibleType, Vector4s *blockCoords, const float *depth,
@@ -720,12 +737,14 @@ __global__ void resetFusedCounter_device(ITMHashEntry *hashEntry_ptr, int noTota
 	int offset = threadIdx.x + blockDim.x * (blockIdx.x + blockIdx.y * gridDim.x);
 	if(offset >= noTotalEntries) return;
 	hashEntry_ptr[offset].fused_counter=0;
+	hashEntry_ptr[offset].mesh_dirty_mask=0;
 }
 __global__ void resetExcessFusedCounter_device(ITMHashEntry *hashEntry_ptr,  int excessListSize){
 	int offset = threadIdx.x + blockDim.x * (blockIdx.x + blockIdx.y * gridDim.x);
 	if(offset >= excessListSize) return;
 	int index = SDF_BUCKET_NUM + offset;
 	hashEntry_ptr[index].fused_counter=0;
+	hashEntry_ptr[index].mesh_dirty_mask=0;
 }
 
 

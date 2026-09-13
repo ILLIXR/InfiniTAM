@@ -43,6 +43,10 @@ struct ITMHashEntry
 	//pyh voxel block-level tracking flag 
 	unsigned fused_counter;
 	bool init = false;
+	// Bit d marks an owner at pos - (d&1, (d>>1)&1, (d>>2)&1).
+	// Accumulated from changed stored SDF samples until mesh extraction resets it.
+	// This byte occupies existing padding; the hash entry remains 24 bytes.
+	unsigned char mesh_dirty_mask = 0;
 };
 
 namespace ITMLib
